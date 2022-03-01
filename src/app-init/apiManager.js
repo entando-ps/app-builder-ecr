@@ -9,7 +9,7 @@ import {
 import { clearAppTourProgress } from 'state/app-tour/actions';
 import { addToast, TOAST_WARNING } from '@entando/messages';
 import { defineMessages, injectIntl, intlShape } from 'react-intl';
-import { history, ROUTE_DASHBOARD, ROUTE_HOME } from 'app-init/router';
+import {history, ROUTE_DASHBOARD, ROUTE_ECR_COMPONENT_LIST, ROUTE_HOME} from 'app-init/router';
 import pluginsArray from 'entando-plugins';
 import withAuth from 'auth/withAuth';
 import getRuntimeEnv from 'helpers/getRuntimeEnv';
@@ -44,7 +44,7 @@ const ApiManager = ({
       const route = pathname ? pathname.replace(process.env.PUBLIC_URL, '') : null;
       const goto = auth.enabled && route && route !== ROUTE_HOME
         ? route
-        : ROUTE_DASHBOARD;
+        : ROUTE_ECR_COMPONENT_LIST;
       history.push(goto);
     }
   };

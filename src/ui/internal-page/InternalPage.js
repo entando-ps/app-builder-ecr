@@ -9,11 +9,10 @@ const InternalPage = ({ className, children }) => (
     data-testid="internal-page"
     className={['InternalPage', className, 'layout-pf-fixed'].join(' ').trim()}
   >
-    <VerticalMenuContainer />
     <ActivityStreamContainer >
       <NotificationListContainer />
     </ActivityStreamContainer>
-    <div className="container-fluid container-cards-pf container-pf-nav-pf-vertical">
+    <div className="container-fluid container-cards-pf container-pf-nav-pf-vertical" style={{ margin: '0px' }}>
       {children}
     </div>
   </div>

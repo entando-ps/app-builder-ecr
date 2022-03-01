@@ -18,23 +18,6 @@ import InstallationPlanModal from 'ui/component-repository/components/Installati
 export const ComponentListPageBody = () => (
   <InternalPage className="ComponentListPage">
     <Grid fluid>
-      <div className="ComponentListPage__header">
-        <Row>
-          <Col md={12}>
-            <Breadcrumb>
-              <BreadcrumbItem to={ROUTE_ECR_COMPONENT_LIST}>
-                <FormattedMessage id="componentRepository.menuButton.title" />
-              </BreadcrumbItem>
-            </Breadcrumb>
-            <PageTitle
-              titleId="componentRepository.component.list.title"
-              helpId="componentRepository.component.help"
-              configLink={ROUTE_ECR_CONFIG_LIST}
-              hideConfigLink
-            />
-          </Col>
-        </Row>
-      </div>
       <div className="ComponentListPage__body">
         <Row>
           <Col md={3}>
