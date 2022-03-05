@@ -55,5 +55,7 @@ class EntEcr extends HTMLElement {
 }
 
 registerServiceWorker();
-// eslint-disable-next-line
-customElements.get('ent-ecr') || customElements.define('ent-ecr', EntEcr);
+
+if (!customElements.get('ent-ecr')) {
+  customElements.define('ent-ecr', EntEcr);
+}
