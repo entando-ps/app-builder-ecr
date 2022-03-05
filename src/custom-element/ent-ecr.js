@@ -56,4 +56,6 @@ class EntEcr extends HTMLElement {
 
 registerServiceWorker();
 
-customElements.get('ent-ecr') || customElements.define('ent-ecr', EntEcr);
+if (!customElements.get('ent-ecr')) {
+  customElements.define('ent-ecr', EntEcr);
+}
