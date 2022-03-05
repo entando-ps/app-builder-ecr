@@ -15,7 +15,7 @@ keycloak.setToRefreshToken = (val) => {
   keycloak.toRefreshToken = val;
 };
 
-export const mapStateToProps = () => ({ keycloak, initConfig: { onLoad: 'login-required' } });
+export const mapStateToProps = () => ({ keycloak, initConfig: { onLoad: 'login-required', responseMode: 'query' } });
 
 export const mapDispatchToProps = dispatch => ({
   onEvent: (event) => {
