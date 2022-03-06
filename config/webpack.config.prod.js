@@ -14,6 +14,12 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const paths = require('./paths');
 const getClientEnvironment = require('./env');
 
+
+const appPackageJson = require('../package.json');
+
+const filename = `${appPackageJson.name}-${appPackageJson.version}`;
+
+
 // Webpack uses `publicPath` to determine where the app is being served from.
 // It requires a trailing slash, or the file assets will get an incorrect path.
 const publicPath = paths.servedPath;
@@ -47,18 +53,21 @@ module.exports = {
   mode: 'production',
   // Don't attempt to continue if there are any errors.
   bail: true,
-  // We generate sourcemaps in production. This is slow but gives good results.
-  // You can exclude the *.map files from the build during deployment.
-  devtool: shouldUseSourceMap ? 'source-map' : false,
+
+  devtool: false,
+
   // In production, we only want to load the polyfills and the app code.
   entry: [require.resolve('./polyfills'), paths.appIndexJs],
   output: {
+    filename: `static/js/${filename}.js`,
+    libraryTarget: "umd",
+    jsonpFunction: `webpackJsonp${filename}`,
+
     // The build folder.
     path: paths.appBuild,
     // Generated JS file names (with nested folders).
     // There will be one main bundle, and one file per asynchronous chunk.
     // We don't currently advertise code splitting but Webpack supports it.
-    filename: 'static/js/[name].[chunkhash:8].js',
     chunkFilename: 'static/js/[name].[chunkhash:8].chunk.js',
     // We inferred the "public path" (such as / or /my-project) from homepage.
     publicPath,
@@ -249,7 +258,6 @@ module.exports = {
     ],
   },
   optimization: {
-    minimize: true,
   },
   plugins: [
     // Makes some environment variables available in index.html.
@@ -329,6 +337,17 @@ module.exports = {
     // You can remove this if you don't use Moment.js:
     new webpack.IgnorePlugin(/^\.\/locale$/, /moment$/),
     new DuplicatePackageCheckerPlugin(),
+
+    new webpack.optimize.LimitChunkCountPlugin({
+      maxChunks: 1
+    }),
+    new webpack.SourceMapDevToolPlugin({
+      filename: 'sourcemaps/[file].map',
+      publicPath: 'http://localhost:3000/',
+      namespace: filename,
+      moduleFilenameTemplate: 'webpack://[namespace]/[resource-path]?[loaders]',
+    })
+
   ],
   // Some libraries import Node modules but don't use them in the browser.
   // Tell Webpack to provide empty mocks for them so importing them works.

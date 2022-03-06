@@ -1,8 +1,6 @@
 import { createHashHistory } from 'history';
 
-export const history = createHashHistory({
-  basename: process.env.PUBLIC_URL,
-});
+export const history = createHashHistory();
 
 export const ROUTE_HOME = '/';
 export const ROUTE_DASHBOARD = '/dashboard';
