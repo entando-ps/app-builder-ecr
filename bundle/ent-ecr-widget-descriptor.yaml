@@ -1,0 +1,6 @@
+code: ent-ecr-widget
+titles:
+  en: Entando ECR MFE
+  it: Entando ECR MFE
+group: free
+customUiPath: ent-ecr-widget.ftl

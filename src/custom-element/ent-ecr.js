@@ -2,7 +2,6 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import { HashRouter } from 'react-router-dom';
 
-import registerServiceWorker from 'registerServiceWorker';
 
 // state manager (Redux)
 import { Provider } from 'react-redux';
@@ -54,7 +53,6 @@ class EntEcr extends HTMLElement {
   }
 }
 
-registerServiceWorker();
 
 if (!customElements.get('ent-ecr')) {
   customElements.define('ent-ecr', EntEcr);
