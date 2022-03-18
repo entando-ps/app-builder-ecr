@@ -12,7 +12,7 @@ const ComponentImage = ({ component }) => {
   }
 
   return (
-    <img src="images/image-unavailable.png" alt="unavailable" />
+    <img src={`${process.env.PUBLIC_URL}/static/images/image-unavailable.png`} alt="" />
   );
 };
 
