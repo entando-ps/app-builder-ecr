@@ -5,7 +5,7 @@ import { FormattedMessage, defineMessages, injectIntl, intlShape } from 'react-i
 import { Field, reduxForm } from 'redux-form';
 import { Button, Tabs, Tab, Col, Alert, Spinner, ControlLabel, DropdownButton, MenuItem } from 'patternfly-react';
 import { Panel } from 'react-bootstrap';
-import { required, widgetCode, maxLength } from '@entando/utils';
+import { required, maxLength } from '@entando/utils';
 import { isUndefined } from 'lodash';
 
 import getAppBuilderWidgetForm from 'helpers/getAppBuilderWidgetForm';
@@ -24,6 +24,12 @@ const MODE_EDIT = 'edit';
 export const MODE_CLONE = 'clone';
 const maxLength30 = maxLength(30);
 const maxLength70 = maxLength(70);
+
+export const validateWidgetCode = value => (
+  value && /^[0-9a-zA-Z_\-.]+$/i.test(value) ?
+    undefined :
+    <FormattedMessage id="validateForm.fragmentCode" />
+);
 
 const widgetFormName = 'widget';
 
@@ -74,21 +80,11 @@ const msgs = defineMessages({
   },
 });
 
-const validateJson = (value) => {
-  try {
-    if (value) {
-      JSON.parse(value);
-    }
-    return undefined;
-  } catch (e) {
-    return `Invalid JSON format: ${e.message}`;
-  }
-};
-
 export class WidgetFormBody extends Component {
   constructor() {
     super();
     this.portalContainer = null;
+    this.validateJson = this.validateJson.bind(this);
   }
 
   componentWillMount() {
@@ -97,6 +93,31 @@ export class WidgetFormBody extends Component {
 
   componentDidMount() {
     this.portalContainer = document.getElementById('widget-button-holder');
+  }
+
+  componentWillUnmount() {
+    if (this.props.onWillUnmount) this.props.onWillUnmount();
+  }
+
+  validateJson(value) {
+    const { intl } = this.props;
+    try {
+      if (value) {
+        const parsed = JSON.parse(value);
+        if (!('customElement' in parsed)) {
+          return intl.formatMessage({ id: 'validateForm.widgetJSON.noCustomElement' });
+        } else if (typeof parsed.customElement !== 'string') {
+          return intl.formatMessage({ id: 'validateForm.widgetJSON.customElementString' });
+        } else if ('resources' in parsed && !Array.isArray(parsed.resources)) {
+          return intl.formatMessage({ id: 'validateForm.widgetJSON.resourcesInvalid' });
+        } else if (parsed.resources.some(resource => typeof resource !== 'string')) {
+          return intl.formatMessage({ id: 'validateForm.widgetJSON.resourcesNotString' });
+        }
+      }
+      return undefined;
+    } catch (e) {
+      return intl.formatMessage({ id: 'validateForm.widgetJSON.formatInvalid' });
+    }
   }
 
   renderTitleFields() {
@@ -169,8 +190,8 @@ export class WidgetFormBody extends Component {
               eventKey={REGULAR_SAVE_TYPE}
               disabled={invalid || submitting}
               onClick={handleSubmit(values => onSubmit({
-          ...values,
-        }, REGULAR_SAVE_TYPE))}
+                ...values,
+              }, REGULAR_SAVE_TYPE))}
             >
               <FormattedMessage id="app.save" />
             </MenuItem>
@@ -179,8 +200,8 @@ export class WidgetFormBody extends Component {
               eventKey={CONTINUE_SAVE_TYPE}
               disabled={invalid || submitting}
               onClick={handleSubmit(values => onSubmit({
-          ...values,
-        }, CONTINUE_SAVE_TYPE))}
+                ...values,
+              }, CONTINUE_SAVE_TYPE))}
             >
               <FormattedMessage id="app.saveAndContinue" />
             </MenuItem>
@@ -198,10 +219,9 @@ export class WidgetFormBody extends Component {
 
   render() {
     const {
-      intl, onDiscard, onSave,
-      invalid, submitting, loading, mode, config,
-      parentWidget, parentWidgetParameters, defaultUIField,
-      match: { params }, groups, noPortal,
+      intl, onDiscard, onSave, invalid, submitting, loading, mode, config,
+      parentWidget, parentWidgetParameters, defaultUIField, match: { params },
+      groups, noPortal, widget, configUiRequired,
     } = this.props;
 
     let codeField = (
@@ -209,20 +229,22 @@ export class WidgetFormBody extends Component {
         component={RenderTextInput}
         name="code"
         label={
-          <FormLabel labelId="widget.page.create.code" helpId="app.help.code" required />
+          <FormLabel labelId="widget.page.create.code" helpId="app.help.codeWithDash" required />
         }
         placeholder={intl.formatMessage(msgs.codePlaceholder)}
-        validate={[required, widgetCode, maxLength30]}
+        validate={[required, validateWidgetCode, maxLength30]}
       />
     );
 
     let defaultUITab = (
       <Tab eventKey={3} title={intl.formatMessage(msgs.defaultUi)}>
         {
-          defaultUIField ? <pre className="WidgetForm__default-ui">{defaultUIField}</pre> :
-          <Alert type="info">
-            <FormattedMessage id="widget.page.alert.notAvailable" />
-          </Alert>
+          defaultUIField ?
+            <pre className="WidgetForm__default-ui">{defaultUIField}</pre>
+            :
+            <Alert type="info">
+              <FormattedMessage id="widget.page.alert.notAvailable" />
+            </Alert>
         }
       </Tab>
     );
@@ -237,6 +259,12 @@ export class WidgetFormBody extends Component {
       && mode === MODE_CLONE
       && getAppBuilderWidgetForm(parentWidget, true);
 
+    const isUserWidget = widget && widget.typology === 'user';
+
+    const configUiValidationRules = configUiRequired
+      ? [this.validateJson, required]
+      : [this.validateJson];
+
     return (
       <Spinner loading={!!loading}>
         <form className="form-horizontal">
@@ -250,57 +278,58 @@ export class WidgetFormBody extends Component {
                         labelSize={0}
                         name="customUi"
                         component={RenderTextAreaInput}
-                        cols="50"
-                        rows="8"
+                        cols={50}
+                        rows={8}
                         className="form-control"
                         validate={[required]}
                       />
                     </Tab>
                   }
                   {!parentWidgetParameters.length && defaultUITab}
-                  <Tab eventKey={2} title={`${intl.formatMessage(msgs.configUi)}`} >
+                  <Tab eventKey={2} title={`${intl.formatMessage(msgs.configUi)}${configUiRequired ? ' *' : ''}`} >
                     <Field
                       component={JsonCodeEditorRenderer}
                       name="configUi"
-                      validate={[validateJson]}
+                      validate={configUiValidationRules}
                     />
                   </Tab>
 
                   {!!parentWidgetParameters.length && (
-                      (mode === MODE_CLONE && !!NativeWidgetConfigForm) ? (
-                        <Tab eventKey={4} title={`${intl.formatMessage(msgs.config)} *`} >
-                          <fieldset className="no-padding">
+                    (mode === MODE_CLONE && !!NativeWidgetConfigForm) ? (
+                      <Tab eventKey={4} title={`${intl.formatMessage(msgs.config)} *`} >
+                        <fieldset className="no-padding">
+                          <Field
+                            name="config"
+                            component={NativeWidgetConfigForm}
+                            cloneMode
+                            widgetConfig={config}
+                            widgetCode={parentWidget.code}
+                            extFormName={widgetFormName}
+                            pageCode={params.pageCode}
+                            frameId={params.frameId}
+                            mode={mode}
+                          />
+                        </fieldset>
+                      </Tab>
+                    ) : (
+                      <Tab eventKey={4} title={`${intl.formatMessage(msgs.parameters)}`} >
+                        <fieldset className="no-padding">
+                          {parentWidgetParameters.map(param => (
                             <Field
-                              name="config"
-                              component={NativeWidgetConfigForm}
-                              cloneMode
-                              widgetConfig={config}
-                              widgetCode={parentWidget.code}
-                              extFormName={widgetFormName}
-                              pageCode={params.pageCode}
-                              frameId={params.frameId}
-                              mode={mode}
+                              key={param.code}
+                              component={RenderTextInput}
+                              name={`config.${param.code}`}
+                              label={<FormLabel
+                                labelText={param.code}
+                                helpText={param.description}
+                              />}
+                              disabled={isUserWidget}
                             />
-                          </fieldset>
-                        </Tab>
-                      ) : (
-                        <Tab eventKey={4} title={`${intl.formatMessage(msgs.parameters)}`} >
-                          <fieldset className="no-padding">
-                            {parentWidgetParameters.map(param => (
-                              <Field
-                                key={param.code}
-                                component={RenderTextInput}
-                                name={`config.${param.code}`}
-                                label={<FormLabel
-                                  labelText={param.code}
-                                  helpText={param.description}
-                                />}
-                              />
-                            ))}
-                          </fieldset>
-                        </Tab>
-                        )
-                      )}
+                          ))}
+                        </fieldset>
+                      </Tab>
+                    )
+                  )}
 
                 </Tabs>
               </fieldset>
@@ -376,6 +405,7 @@ export class WidgetFormBody extends Component {
 WidgetFormBody.propTypes = {
   intl: intlShape.isRequired,
   onWillMount: PropTypes.func,
+  onWillUnmount: PropTypes.func,
   handleSubmit: PropTypes.func.isRequired,
   invalid: PropTypes.bool,
   submitting: PropTypes.bool,
@@ -389,6 +419,7 @@ WidgetFormBody.propTypes = {
   )),
   parentWidget: PropTypes.shape({
     code: PropTypes.string,
+    titles: PropTypes.shape({ en: PropTypes.string }),
   }),
   mode: PropTypes.string,
   defaultUIField: PropTypes.string,
@@ -401,13 +432,21 @@ WidgetFormBody.propTypes = {
   onReplaceSubmit: PropTypes.func,
   onSubmit: PropTypes.func.isRequired,
   match: PropTypes.shape({
-    params: PropTypes.shape({}),
+    params: PropTypes.shape({
+      pageCode: PropTypes.string,
+      frameId: PropTypes.string,
+    }),
   }),
   noPortal: PropTypes.bool,
+  widget: PropTypes.shape({
+    typology: PropTypes.string,
+  }),
+  configUiRequired: PropTypes.bool,
 };
 
 WidgetFormBody.defaultProps = {
   onWillMount: null,
+  onWillUnmount: null,
   invalid: false,
   submitting: false,
   groups: [{
@@ -427,6 +466,8 @@ WidgetFormBody.defaultProps = {
   },
   onReplaceSubmit: () => {},
   noPortal: false,
+  widget: {},
+  configUiRequired: false,
 };
 
 const WidgetForm = reduxForm({

@@ -9,6 +9,7 @@ import ComponentListListView from 'ui/component-repository/components/list/Compo
 import { ECR_COMPONENTS_GRID_VIEW } from 'state/component-repository/components/const';
 import { componentType } from 'models/component-repository/components';
 import paginatorMessages from 'ui/paginatorMessages';
+import HubBundleManagementModal, { HUB_BUNDLE_MANAGEMENT_MODAL_ID } from 'ui/component-repository/components/list/HubBundleManagementModal';
 
 class ComponentList extends Component {
   constructor(props) {
@@ -39,6 +40,10 @@ class ComponentList extends Component {
       totalItems,
       componentRepositoryComponents,
       intl,
+      getInstallPlan,
+      openComponentManagementModal,
+      bundleStatuses,
+      openedModal,
     } = this.props;
 
     const pagination = {
@@ -47,8 +52,20 @@ class ComponentList extends Component {
       perPageOptions: [5, 10, 15, 25, 50],
     };
     const renderComponents = (viewMode === ECR_COMPONENTS_GRID_VIEW)
-      ? <ComponentListGridView components={componentRepositoryComponents} locale={intl.locale} />
-      : <ComponentListListView components={componentRepositoryComponents} locale={intl.locale} />;
+      ? (<ComponentListGridView
+          components={componentRepositoryComponents}
+          locale={intl.locale}
+          onClickInstallPlan={getInstallPlan}
+          openComponentManagementModal={openComponentManagementModal}
+          bundleStatuses={bundleStatuses}
+      />)
+      : (<ComponentListListView
+          components={componentRepositoryComponents}
+          locale={intl.locale}
+          onClickInstallPlan={getInstallPlan}
+          openComponentManagementModal={openComponentManagementModal}
+          bundleStatuses={bundleStatuses}
+      />);
 
     const components = (!componentRepositoryComponents
       || componentRepositoryComponents.length === 0)
@@ -69,12 +86,14 @@ class ComponentList extends Component {
         <Spinner loading={!!loading} >
           {components}
           <Paginator
+            viewType="table"
             pagination={pagination}
             itemCount={totalItems}
             onPageSet={this.changePage}
             onPerPageSelect={this.changePageSize}
             messages={messages}
           />
+          {openedModal === HUB_BUNDLE_MANAGEMENT_MODAL_ID && <HubBundleManagementModal />}
         </Spinner>
       </div>
     );
@@ -84,6 +103,7 @@ class ComponentList extends Component {
 ComponentList.propTypes = {
   intl: intlShape.isRequired,
   onDidMount: PropTypes.func,
+  getInstallPlan: PropTypes.func.isRequired,
   fetchECRComponentsFiltered: PropTypes.func.isRequired,
   loading: PropTypes.bool,
   viewMode: PropTypes.string,
@@ -91,6 +111,13 @@ ComponentList.propTypes = {
   page: PropTypes.number.isRequired,
   pageSize: PropTypes.number.isRequired,
   totalItems: PropTypes.number.isRequired,
+  openComponentManagementModal: PropTypes.func,
+  bundleStatuses: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.string,
+    status: PropTypes.string,
+    installedVersion: PropTypes.string,
+  })),
+  openedModal: PropTypes.string,
 };
 
 ComponentList.defaultProps = {
@@ -98,6 +125,9 @@ ComponentList.defaultProps = {
   loading: false,
   componentRepositoryComponents: [],
   viewMode: ECR_COMPONENTS_GRID_VIEW,
+  openComponentManagementModal: () => {},
+  bundleStatuses: [],
+  openedModal: '',
 };
 
 export default injectIntl(ComponentList);

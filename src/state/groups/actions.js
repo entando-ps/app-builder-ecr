@@ -1,15 +1,14 @@
-import { initialize } from 'redux-form';
-import { addToast, addErrors, TOAST_ERROR } from '@entando/messages';
+import { addToast, addErrors, TOAST_ERROR, TOAST_SUCCESS } from '@entando/messages';
 
 import {
   getGroups,
+  getMyGroups,
   postGroup,
   getGroup,
   putGroup,
   deleteGroup,
   getReferences,
 } from 'api/groups';
-import { getMyGroupPermissions } from 'api/permissions';
 import { setPage } from 'state/pagination/actions';
 import { toggleLoading } from 'state/loading/actions';
 import { getReferenceKeyList, getSelectedRefs } from 'state/groups/selectors';
@@ -19,11 +18,9 @@ import {
   SET_REFERENCES,
   REMOVE_GROUP,
   SET_GROUPS_TOTAL,
-  SET_CURRENT_USER_GROUPS,
+  SET_GROUP_ENTRIES,
 } from 'state/groups/types';
 import { history, ROUTE_GROUP_LIST } from 'app-init/router';
-import { FREE_ACCESS_GROUP } from './const';
-
 
 export const setGroups = groups => ({
   type: SET_GROUPS,
@@ -46,6 +43,13 @@ export const setSelectedGroup = group => ({
   },
 });
 
+export const clearSelectedGroup = () => ({
+  type: SET_SELECTED_GROUP,
+  payload: {
+    group: {},
+  },
+});
+
 export const removeGroupSync = groupCode => ({
   type: REMOVE_GROUP,
   payload: {
@@ -53,8 +57,8 @@ export const removeGroupSync = groupCode => ({
   },
 });
 
-export const setCurrentUserGroups = groups => ({
-  type: SET_CURRENT_USER_GROUPS,
+export const setGroupEntries = groups => ({
+  type: SET_GROUP_ENTRIES,
   payload: {
     groups,
   },
@@ -62,14 +66,17 @@ export const setCurrentUserGroups = groups => ({
 
 // thunk
 
-export const fetchGroups = (page = { page: 1, pageSize: 10 }, params = '') => dispatch => new Promise((resolve) => {
+export const fetchMyGroups = ({ sort } = {}) => dispatch => new Promise((resolve) => {
   dispatch(toggleLoading('groups'));
-  getGroups(page, params).then((response) => {
+  getMyGroups().then((response) => {
     response.json().then((data) => {
       if (response.ok) {
-        dispatch(setGroups(data.payload));
+        const groups = data.payload.slice();
+        if (sort) {
+          groups.sort((a, b) => a[sort].localeCompare(b[sort]));
+        }
+        dispatch(setGroups(groups));
         dispatch(toggleLoading('groups'));
-        dispatch(setPage(data.metaData));
         resolve();
       } else {
         dispatch(addErrors(data.errors.map(err => err.message)));
@@ -102,7 +109,7 @@ export const fetchGroup = groupCode => dispatch => (
     getGroup(groupCode).then((response) => {
       response.json().then((data) => {
         if (response.ok) {
-          dispatch(initialize('group', data.payload));
+          dispatch(setSelectedGroup(data.payload));
           resolve();
         } else {
           dispatch(addErrors(data.errors.map(err => err.message)));
@@ -119,6 +126,10 @@ export const sendPutGroup = groupData => dispatch => (
     putGroup(groupData).then((response) => {
       response.json().then((data) => {
         if (response.ok) {
+          dispatch(addToast(
+            { id: 'app.updated', values: { type: 'group', code: groupData.code } },
+            TOAST_SUCCESS,
+          ));
           history.push(ROUTE_GROUP_LIST);
           resolve();
         } else {
@@ -131,11 +142,18 @@ export const sendPutGroup = groupData => dispatch => (
   })
 );
 
-export const sendPostGroup = groupData => dispatch => (
+export const sendPostGroup = groupData => (dispatch, getState) => (
   new Promise((resolve) => {
     postGroup(groupData).then((response) => {
       response.json().then((data) => {
         if (response.ok) {
+          dispatch(addToast(
+            { id: 'app.created', values: { type: 'group', code: groupData.code } },
+            TOAST_SUCCESS,
+          ));
+          // update store with new group
+          const { groups } = getState();
+          dispatch(setGroups([...groups.groupEntries, groupData]));
           history.push(ROUTE_GROUP_LIST);
           resolve();
         } else {
@@ -154,6 +172,10 @@ export const sendDeleteGroup = groupCode => dispatch => (
       response.json().then((data) => {
         if (response.ok) {
           dispatch(removeGroupSync(groupCode));
+          dispatch(addToast(
+            { id: 'app.deleted', values: { type: 'group', code: groupCode } },
+            TOAST_SUCCESS,
+          ));
           resolve();
         } else {
           dispatch(addErrors(data.errors.map(err => err.message)));
@@ -220,42 +242,21 @@ export const fetchCurrentPageGroupDetail = groupname => (dispatch, getState) => 
   })
 );
 
-export const fetchCurrentUserGroups = () => async (dispatch) => {
-  try {
-    const response = await getGroups({ page: 1, pageSize: 0 });
-    const json = await response.json();
-    if (response.ok) {
-      const groups = json.payload;
-      dispatch(setGroups(groups));
-      const myGroupPermissionsResponse = await getMyGroupPermissions();
-      const myGroupPermissionsJson = await myGroupPermissionsResponse.json();
-      if (myGroupPermissionsResponse.ok) {
-        const myGroupPermissions = myGroupPermissionsJson.payload;
-        const groupsMap = groups.reduce((acc, group) => ({
-          ...acc,
-          [group.code]: group,
-        }), {});
-        const hasFreeAccessGroupPermissions = myGroupPermissions.some(({ group: groupCode }) => (
-          groupCode === FREE_ACCESS_GROUP.code
-        ));
-        const currentUserGroups = myGroupPermissions
-          .map(({ group: groupCode, permissions }) => ({
-            ...groupsMap[groupCode],
-            permissions,
-          }));
-        if (!hasFreeAccessGroupPermissions) {
-          currentUserGroups.push(FREE_ACCESS_GROUP);
-        }
-        dispatch(setCurrentUserGroups(currentUserGroups));
+export const fetchAllGroupEntries = (page = { page: 1, pageSize: 10 }, params = '') => dispatch => new Promise((resolve) => {
+  dispatch(toggleLoading('groups'));
+  getGroups(page, params).then((response) => {
+    response.json().then((data) => {
+      if (response.ok) {
+        dispatch(setGroupEntries(data.payload));
+        dispatch(toggleLoading('groups'));
+        dispatch(setPage(data.metaData));
+        resolve();
       } else {
-        dispatch(addErrors(json.errors.map(e => e.message)));
-        json.errors.forEach(err => dispatch(addToast(err.message, TOAST_ERROR)));
+        dispatch(addErrors(data.errors.map(err => err.message)));
+        data.errors.forEach(err => dispatch(addToast(err.message, TOAST_ERROR)));
+        dispatch(toggleLoading('groups'));
+        resolve();
       }
-    } else {
-      dispatch(addErrors(json.errors.map(e => e.message)));
-      json.errors.forEach(err => dispatch(addToast(err.message, TOAST_ERROR)));
-    }
-  } catch (e) {
-    // do nothing
-  }
-};
+    });
+  }).catch(() => {});
+});

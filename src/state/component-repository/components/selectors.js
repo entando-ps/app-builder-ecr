@@ -59,12 +59,14 @@ export const getECRComponentLastInstallStatus = (state, props) => {
   return get(state, `componentRepositoryComponents.list[${listIdx}].lastInstallStatus`, '');
 };
 
-export const getECRComponentInstallationStatus = (state, props) => (
-  get(state, `componentRepositoryComponents.installation[${props.component.code}]`, '')
+export const getECRComponentInstallationStatus = createSelector(
+  [state => state.componentRepositoryComponents.installation, (state, props) => props.component],
+  (installation, component) => installation[component.code],
 );
 
-export const getECRComponentUninstallStatus = (state, props) => (
-  get(state, `componentRepositoryComponents.uninstallation[${props.component.code}]`, '')
+export const getECRComponentUninstallStatus = createSelector(
+  [state => state.componentRepositoryComponents.uninstallation, (state, props) => props.component],
+  (uninstallation, component) => uninstallation[component.code],
 );
 
 export const getComponentUsageList = state => (
@@ -79,3 +81,6 @@ export const getInstallUninstallProgress = createSelector(
 export const getInstallPlan = state => get(state, 'componentRepositoryComponents.installConflicts.installPlan', {});
 export const getComponent = state => get(state, 'componentRepositoryComponents.installConflicts.component', {});
 export const getComponentVersion = state => get(state, 'componentRepositoryComponents.installConflicts.version', null);
+export const isReadOnly = state => get(state, 'componentRepositoryComponents.installConflicts.readOnly', false);
+export const getECRComponentInstallationVersion = state => get(state, 'componentRepositoryComponents.installation.selectedVersion', '');
+export const getECRComponentInstallationHasConflictingVersion = state => get(state, 'componentRepositoryComponents.installConflicts.hasConflictingVersion', false);

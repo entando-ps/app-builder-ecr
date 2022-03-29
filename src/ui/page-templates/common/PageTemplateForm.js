@@ -1,14 +1,16 @@
-import React, { Component } from 'react';
+import React, { useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { Field, reduxForm } from 'redux-form';
+import { Form, Field, withFormik } from 'formik';
 import { Row, Col, FormGroup, Button } from 'patternfly-react';
 import { DropdownButton, MenuItem } from 'react-bootstrap';
-import { required, maxLength } from '@entando/utils';
 import { FormattedMessage, defineMessages, injectIntl, intlShape } from 'react-intl';
+import * as Yup from 'yup';
 
-import RenderTextInput from 'ui/common/form/RenderTextInput';
-import JsonCodeEditorRenderer from 'ui/common/form/JsonCodeEditorRenderer';
-import HtmlCodeEditorRenderer from 'ui/common/form/HtmlCodeEditorRenderer';
+import { validateJson, formatMessageRequired, formatMessageMaxLength } from 'helpers/formikValidations';
+import { convertPageTemplateForm, getCellMap, validateFrames } from 'state/page-templates/helpers';
+import RenderTextInput from 'ui/common/formik-field/RenderTextInput';
+import JsonCodeEditorRenderer from 'ui/common/formik-field/JsonCodeEditorRenderer';
+import HtmlCodeEditorRenderer from 'ui/common/formik-field/HtmlCodeEditorRenderer';
 import FormLabel from 'ui/common/form/FormLabel';
 import PageConfigGrid from 'ui/pages/config/PageConfigGrid';
 import ConfirmCancelModalContainer from 'ui/common/cancel-modal/ConfirmCancelModalContainer';
@@ -17,19 +19,6 @@ import {
   FORM_MODE_ADD, FORM_MODE_EDIT, FORM_MODE_CLONE,
   REGULAR_SAVE_TYPE, CONTINUE_SAVE_TYPE,
 } from 'state/page-templates/const';
-
-
-const maxLength50 = maxLength(50);
-const maxLength40 = maxLength(40);
-
-export const validateJson = (value) => {
-  try {
-    JSON.parse(value);
-    return undefined;
-  } catch (e) {
-    return `Invalid JSON format: ${e.message}`;
-  }
-};
 
 const msgs = defineMessages({
   appCode: {
@@ -48,193 +37,248 @@ const msgs = defineMessages({
     id: 'pageTemplates.template',
     defaultMessage: 'Template',
   },
+  maxLength: {
+    id: 'validateForm.maxLength',
+    deaultMessage: 'Maximum of {max} characters only.',
+  },
+  required: {
+    id: 'validateForm.required',
+    defaultMessage: 'Required',
+  },
 });
 
-export class PageTemplateFormBody extends Component {
-  constructor(props) {
-    super(props);
-    this.validatePreviewErrors = this.validatePreviewErrors.bind(this);
-  }
+const PageTemplateFormBody = ({
+  intl,
+  values,
+  dirty,
+  isSubmitting: submitting,
+  isValid,
+  setSubmitting,
+  submitForm,
+  resetForm,
+  mode,
+  onDidMount,
+  onWillUnmount,
+  onSubmit,
+  onCancel,
+  onDiscard,
+  onHideCancelModal,
+}) => {
+  useEffect(() => {
+    onDidMount();
+    return () => onWillUnmount();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  componentDidMount() {
-    if (this.props.onWillMount) {
-      this.props.onWillMount(this.props);
-    }
-  }
+  const isEditMode = mode === FORM_MODE_EDIT;
+  const invalid = !isValid;
 
-  validatePreviewErrors(value, allValues, formProps) {
-    const { intl } = this.props;
-    if (formProps.previewErrors.length) {
-      return formProps.previewErrors.map(({ id, values }) => {
-        const errMsgs = defineMessages({
-          err: { id },
-        });
-        const message = intl.formatMessage(errMsgs.err, values);
-        return <div key={message}>{message}</div>;
-      });
-    }
-    return undefined;
-  }
-
-  render() {
-    const {
-      intl, handleSubmit, invalid, submitting, mode, previewCellMap, previewErrors,
-      onSubmit, dirty, onCancel, onDiscard, onSave,
-    } = this.props;
-
-    const isEditMode = mode === FORM_MODE_EDIT;
-
-    const handleCancelClick = () => {
-      if (dirty) {
-        onCancel();
-      } else {
-        onDiscard();
+  const handleSubmit = (submitType) => {
+    if (invalid || submitting) return;
+    submitForm();
+    onSubmit(values, submitType).then((res) => {
+      setSubmitting(false);
+      if (!res && submitType !== CONTINUE_SAVE_TYPE) {
+        resetForm();
       }
-    };
+    });
+  };
 
-    return (
-      <form className="PageTemplateForm form-horizontal">
-        <Row>
-          <Col xs={12}>
-            <fieldset>
-              <Field
-                component={RenderTextInput}
-                name="code"
-                label={<FormLabel labelId="app.code" helpId="pageTemplates.code.help" required />}
-                placeholder={intl.formatMessage(msgs.appCode)}
-                validate={[required, maxLength40]}
-                disabled={isEditMode}
-              />
-            </fieldset>
-            <fieldset>
-              <Field
-                component={RenderTextInput}
-                name="descr"
-                label={<FormLabel labelId="app.name" helpId="pageTemplates.name.help" required />}
-                placeholder={intl.formatMessage(msgs.appName)}
-                validate={[required, maxLength50]}
-              />
-            </fieldset>
-          </Col>
-        </Row>
-        <Row>
-          <Col xs={12}>
-            <FormGroup>
-              <Field
-                component={JsonCodeEditorRenderer}
-                name="configuration"
-                label={<FormLabel labelId="pageTemplates.jsonConfiguration" required />}
-                placeholder={intl.formatMessage(msgs.pageConfig)}
-                previewErrors={previewErrors}
-                validate={[required, validateJson, this.validatePreviewErrors]}
-              />
-            </FormGroup>
-          </Col>
-        </Row>
-        <Row>
-          <Col xs={12}>
-            <FormGroup>
-              <Field
-                component={HtmlCodeEditorRenderer}
-                name="template"
-                label={<FormLabel labelId="pageTemplates.template" required />}
-                placeholder={intl.formatMessage(msgs.pageTemplate)}
-                validate={[required]}
-              />
-            </FormGroup>
-          </Col>
-        </Row>
-        <Row>
-          <label className="col-xs-2 control-label">
-            <FormattedMessage id="pageTemplates.templatePreview" />
-          </label>
-          <Col xs={10}>
-            <PageConfigGrid cellMap={previewCellMap} />
-          </Col>
-        </Row>
-        <Row>
-          <br />
-          <Col xs={12}>
-            <div className="btn-toolbar pull-right FragmentForm__dropdown">
-              <Button
-                className="pull-right UserForm__action-button"
-                bsStyle="default"
-                onClick={handleCancelClick}
+  const handleCancelClick = () => {
+    if (dirty) {
+      onCancel();
+    } else {
+      onDiscard();
+    }
+  };
+
+  return (
+    <Form className="PageTemplateForm form-horizontal">
+      <Row>
+        <Col xs={12}>
+          <fieldset>
+            <Field
+              component={RenderTextInput}
+              name="code"
+              label={<FormLabel labelId="app.code" helpId="pageTemplates.code.help" required />}
+              placeholder={intl.formatMessage(msgs.appCode)}
+              disabled={isEditMode}
+            />
+          </fieldset>
+          <fieldset>
+            <Field
+              component={RenderTextInput}
+              name="descr"
+              label={<FormLabel labelId="app.name" helpId="pageTemplates.name.help" required />}
+              placeholder={intl.formatMessage(msgs.appName)}
+            />
+          </fieldset>
+        </Col>
+      </Row>
+      <Row>
+        <Col xs={12}>
+          <FormGroup>
+            <Field
+              component={JsonCodeEditorRenderer}
+              name="configuration"
+              label={<FormLabel labelId="pageTemplates.jsonConfiguration" required />}
+              placeholder={intl.formatMessage(msgs.pageConfig)}
+            />
+          </FormGroup>
+        </Col>
+      </Row>
+      <Row>
+        <Col xs={12}>
+          <FormGroup>
+            <Field
+              component={HtmlCodeEditorRenderer}
+              name="template"
+              label={<FormLabel labelId="pageTemplates.template" required />}
+              placeholder={intl.formatMessage(msgs.pageTemplate)}
+            />
+          </FormGroup>
+        </Col>
+      </Row>
+      <Row>
+        <label className="col-xs-2 control-label">
+          <FormattedMessage id="pageTemplates.templatePreview" />
+        </label>
+        <Col xs={10}>
+          <PageConfigGrid cellMap={getCellMap(convertPageTemplateForm(values))} />
+        </Col>
+      </Row>
+      <Row>
+        <br />
+        <Col xs={12}>
+          <div className="btn-toolbar pull-right FragmentForm__dropdown">
+            <Button
+              className="pull-right UserForm__action-button"
+              bsStyle="default"
+              onClick={handleCancelClick}
+            >
+              <FormattedMessage id="app.cancel" />
+            </Button>
+            <DropdownButton
+              title={intl.formatMessage({ id: 'app.save' })}
+              bsStyle="primary"
+              id="saveopts"
+              className="FragmentForm__saveDropdown"
+            >
+              <MenuItem
+                id="regularSaveButton"
+                eventKey={REGULAR_SAVE_TYPE}
+                disabled={invalid || submitting}
+                onClick={() => handleSubmit(REGULAR_SAVE_TYPE)}
               >
-                <FormattedMessage id="app.cancel" />
-              </Button>
-              <DropdownButton
-                title={intl.formatMessage({ id: 'app.save' })}
-                bsStyle="primary"
-                id="saveopts"
-                className="FragmentForm__saveDropdown"
+                <FormattedMessage id="app.save" />
+              </MenuItem>
+              <MenuItem
+                id="continueSaveButton"
+                eventKey={CONTINUE_SAVE_TYPE}
+                disabled={invalid || submitting}
+                onClick={() => (
+                  handleSubmit(CONTINUE_SAVE_TYPE)
+                )}
               >
-                <MenuItem
-                  id="regularSaveButton"
-                  eventKey={REGULAR_SAVE_TYPE}
-                  disabled={invalid || submitting}
-                  onClick={handleSubmit(values => onSubmit({
-                  ...values,
-                }, REGULAR_SAVE_TYPE))}
-                >
-                  <FormattedMessage id="app.save" />
-                </MenuItem>
-                <MenuItem
-                  id="continueSaveButton"
-                  eventKey={CONTINUE_SAVE_TYPE}
-                  disabled={invalid || submitting}
-                  onClick={handleSubmit(values => onSubmit({
-                  ...values,
-                }, CONTINUE_SAVE_TYPE))}
-                >
-                  <FormattedMessage id="app.saveAndContinue" />
-                </MenuItem>
-              </DropdownButton>
-              <ConfirmCancelModalContainer
-                contentText={intl.formatMessage({ id: 'app.confirmCancel' })}
-                invalid={invalid}
-                submitting={submitting}
-                onSave={onSave}
-                onDiscard={onDiscard}
-              />
-            </div>
-          </Col>
-        </Row>
-      </form>
-    );
-  }
-}
+                <FormattedMessage id="app.saveAndContinue" />
+              </MenuItem>
+            </DropdownButton>
+            <ConfirmCancelModalContainer
+              contentText={intl.formatMessage({ id: 'app.confirmCancel' })}
+              invalid={invalid}
+              submitting={submitting}
+              onSave={() => {
+                onHideCancelModal();
+                handleSubmit(REGULAR_SAVE_TYPE);
+              }}
+              onDiscard={onDiscard}
+            />
+          </div>
+        </Col>
+      </Row>
+    </Form>
+  );
+};
 
 PageTemplateFormBody.propTypes = {
   intl: intlShape.isRequired,
-  handleSubmit: PropTypes.func.isRequired,
-  invalid: PropTypes.bool,
-  submitting: PropTypes.bool,
+  values: PropTypes.shape({}).isRequired,
   mode: PropTypes.oneOf([FORM_MODE_ADD, FORM_MODE_CLONE, FORM_MODE_EDIT]),
-  onWillMount: PropTypes.func,
-  previewCellMap: PropTypes.shape({}),
-  previewErrors: PropTypes.arrayOf(PropTypes.shape({
-    id: PropTypes.string.isRequired,
-    values: PropTypes.shape({}),
-  })).isRequired,
-  onSubmit: PropTypes.func.isRequired,
   dirty: PropTypes.bool,
-  onSave: PropTypes.func.isRequired,
+  isValid: PropTypes.bool,
+  isSubmitting: PropTypes.bool,
+  onDidMount: PropTypes.func,
+  onWillUnmount: PropTypes.func,
+  onSubmit: PropTypes.func.isRequired,
+  onHideCancelModal: PropTypes.func.isRequired,
   onDiscard: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,
+  submitForm: PropTypes.func.isRequired,
+  resetForm: PropTypes.func.isRequired,
+  setSubmitting: PropTypes.func.isRequired,
 };
 
 PageTemplateFormBody.defaultProps = {
-  invalid: false,
-  submitting: false,
   mode: FORM_MODE_ADD,
-  onWillMount: null,
-  previewCellMap: null,
   dirty: false,
+  isValid: false,
+  isSubmitting: false,
+  onDidMount: null,
+  onWillUnmount: null,
 };
 
-const PageTemplateForm = reduxForm({
-  form: 'pageTemplate',
+const PageTemplateForm = withFormik({
+  enableReinitialize: true,
+  mapPropsToValues: ({ initialValues }) => initialValues,
+  isInitialValid: ({ mode }) => mode === FORM_MODE_EDIT,
+  mapPropsToErrors: ({ mode }) => {
+    switch (mode) {
+      default:
+      case FORM_MODE_ADD:
+        return { code: '', descr: '', template: '' };
+      case FORM_MODE_CLONE:
+        return { code: '' };
+      case FORM_MODE_EDIT:
+        return {};
+    }
+  },
+  validationSchema: ({ intl }) => (
+    Yup.object().shape({
+      code: Yup.string()
+        .required(intl.formatMessage(formatMessageRequired))
+        .max(40, intl.formatMessage(formatMessageMaxLength, { max: 40 })),
+      descr: Yup.string()
+        .required(intl.formatMessage(formatMessageRequired))
+        .max(50, intl.formatMessage(formatMessageMaxLength, { max: 50 })),
+      configuration: Yup.string()
+        .required(intl.formatMessage(formatMessageRequired))
+        .test('validateJSONPreviewErrors', (value, yupProps) => {
+          const { createError, path } = yupProps;
+          const jsonTest = validateJson(intl)(value, yupProps);
+          if (jsonTest !== true) {
+            return jsonTest;
+          }
+          const previewErrors = validateFrames(JSON.parse(value).frames);
+          if (previewErrors.length) {
+            const errors = previewErrors.map(({ id, values }) => {
+              const errMsgs = defineMessages({
+                err: { id },
+              });
+              return intl.formatMessage(errMsgs.err, values);
+            });
+            return createError({
+              message: errors.join('; '),
+              path,
+            });
+          }
+          return true;
+        }),
+      template: Yup.string()
+        .required(intl.formatMessage(formatMessageRequired)),
+    })
+  ),
+  handleSubmit: () => {},
+  displayName: 'pageTemplateForm',
 })(PageTemplateFormBody);
 
 export default injectIntl(PageTemplateForm);

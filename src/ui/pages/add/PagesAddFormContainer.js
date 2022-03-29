@@ -18,11 +18,28 @@ import { getAppTourProgress, getTourCreatedPage, getExistingPages } from 'state/
 import { APP_TOUR_STARTED, APP_TOUR_HOMEPAGE_CODEREF } from 'state/app-tour/const';
 import { setAppTourLastStep, setTourCreatedPage } from 'state/app-tour/actions';
 import { getUserPreferences } from 'state/user-preferences/selectors';
-import { fetchCurrentUserAuthorities } from 'state/users/actions';
-import { getSelectedUserAuthoritiesList } from 'state/users/selectors';
-import { fetchCurrentUserGroups } from 'state/groups/actions';
-import { MANAGE_PAGES_PERMISSION } from 'state/permissions/const';
-import { currentUserGroupsPermissionsFilter } from 'state/groups/selectors';
+import { MANAGE_PAGES_PERMISSION, SUPERUSER_PERMISSION } from 'state/permissions/const';
+import { getMyGroupPermissions } from 'state/permissions/selectors';
+import { fetchMyGroupPermissions } from 'state/permissions/actions';
+import { fetchAllGroupEntries, fetchMyGroups } from 'state/groups/actions';
+import { getGroupEntries, getGroupsList } from 'state/groups/selectors';
+
+export const getDefaultLanguage = (languages) => {
+  const defaultLang = { code: 'en' };
+  if (!languages || languages.length === 0) return defaultLang;
+  const defaultFiltered = languages.filter(lang => lang.isDefault);
+  if (defaultFiltered && defaultFiltered.length > 0) return defaultFiltered[0];
+  return defaultLang;
+};
+
+export const complementTitlesForActiveLanguages = (existingTitles, languages) => {
+  const defaultLang = getDefaultLanguage(languages);
+  const defaultLangTitle = existingTitles && existingTitles[defaultLang.code];
+  return languages.reduce((acc, curr) => ({
+    ...acc,
+    [curr.code]: existingTitles[curr.code] || defaultLangTitle,
+  }), {});
+};
 
 const getNextPageProperty = ({
   pages,
@@ -61,20 +78,21 @@ export const getNextPageCode = ({ pages, pattern, separator }) => getNextPagePro
   separator,
 });
 
-const getCurrentUserGroupsWithManagePages =
-  currentUserGroupsPermissionsFilter([MANAGE_PAGES_PERMISSION]);
-
 export const mapStateToProps = (state) => {
   const languages = getActiveLanguages(state);
-  const groups = getCurrentUserGroupsWithManagePages(state);
+  const groups = getGroupsList(state);
+  const allGroups = getGroupEntries(state);
   const seoDataByLang = languages.reduce((acc, curr) => ({
     ...acc,
     [curr.code]: { ...SEO_LANGDATA_BLANK },
   }), {});
   const userPreferences = getUserPreferences(state);
-  const userAuthorities = getSelectedUserAuthoritiesList(state) || [];
-  const authorityWithAdmin = userAuthorities.find(ua => ua.role === 'admin') || {};
-  const ownerGroup = userPreferences.defaultPageOwnerGroup || authorityWithAdmin.group;
+  const groupWithPagePermission = getMyGroupPermissions(state)
+    .find(({ permissions }) => (
+      permissions.includes(SUPERUSER_PERMISSION) || permissions.includes(MANAGE_PAGES_PERMISSION)
+    ));
+  const defaultOwnerGroup = userPreferences.defaultPageOwnerGroup
+    || (groupWithPagePermission && groupWithPagePermission.group);
   const joinGroups = userPreferences.defaultPageJoinGroups;
   const appTourProgress = getAppTourProgress(state);
   const mainTitleLangCode = (languages[0] || {}).code || 'en';
@@ -89,6 +107,7 @@ export const mapStateToProps = (state) => {
   return {
     languages,
     groups,
+    allGroups,
     pageTemplates: getPageTemplatesList(state),
     charsets: getCharsets(state),
     contentTypes: getContentTypes(state),
@@ -99,7 +118,7 @@ export const mapStateToProps = (state) => {
         ...SEO_DATA_BLANK,
         seoDataByLang,
       },
-      ownerGroup,
+      ownerGroup: defaultOwnerGroup,
       joinGroups,
       ...(parentCode ? { parentCode } : {}),
       ...(appTourProgress === APP_TOUR_STARTED && {
@@ -132,8 +151,9 @@ export const mapDispatchToProps = dispatch => ({
   onWillMount: (data) => {
     dispatch(loadSelectedPage(data.parentCode));
     dispatch(fetchLanguages({ page: 1, pageSize: 0 }));
-    dispatch(fetchCurrentUserAuthorities());
-    dispatch(fetchCurrentUserGroups());
+    dispatch(fetchMyGroupPermissions({ sort: 'group' }));
+    dispatch(fetchAllGroupEntries({ page: 1, pageSize: 0 }));
+    dispatch(fetchMyGroups({ sort: 'name' }));
   },
   onInitPageForm: (data) => {
     const {

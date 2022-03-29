@@ -8,6 +8,7 @@ import {
 import { history, ROUTE_PAGE_TREE } from 'app-init/router';
 // mocked
 import { formValueSelector, change } from 'redux-form';
+import { getGroupsList, getGroupEntries } from 'state/groups/selectors';
 import { getPageTemplatesList } from 'state/page-templates/selectors';
 import {
   getCharsets,
@@ -28,8 +29,9 @@ jest.mock('state/pages/actions', () => ({
   sendPostPage: jest.fn(() => Promise.resolve({})),
 }));
 
-jest.mock('state/groups/selectors/', () => ({
-  currentUserGroupsPermissionsFilter: jest.fn(() => () => 'filteredCurrentUserGroups_result'),
+jest.mock('state/groups/selectors', () => ({
+  getGroupsList: jest.fn().mockReturnValue('getGroupsList_result'),
+  getGroupEntries: jest.fn().mockReturnValue('getGroupEntries_result'),
 }));
 
 jest.mock('state/app-tour/selectors', () => ({
@@ -60,6 +62,10 @@ jest.mock('state/user-preferences/selectors', () => ({
 
 jest.mock('state/users/selectors', () => ({
   getSelectedUserAuthoritiesList: jest.fn(),
+}));
+
+jest.mock('state/permissions/selectors', () => ({
+  getMyGroupPermissions: jest.fn(() => ([{ group: 'free', permissions: [] }])),
 }));
 
 jest.mock('app-init/router', () => ({
@@ -209,8 +215,14 @@ describe('PagesAddFormContainer', () => {
       expect(props).toHaveProperty('languages', LANGUAGES);
     });
 
-    it('maps the "groups" prop with the filtered current user groups', () => {
-      expect(props.groups).toBe('filteredCurrentUserGroups_result');
+    it('maps the "groups" prop with the getGroupsList selector', () => {
+      expect(getGroupsList).toHaveBeenCalledWith(STATE);
+      expect(props.groups).toBe('getGroupsList_result');
+    });
+
+    it('maps the "allGroups" prop with the getGroupEntries selector', () => {
+      expect(getGroupEntries).toHaveBeenCalledWith(STATE);
+      expect(props.allGroups).toBe('getGroupEntries_result');
     });
 
     it('maps the "pageTemplates" prop with the getPageTemplates selector', () => {

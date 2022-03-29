@@ -14,13 +14,13 @@ import {
   fetchPageForm, sendPutPage, setFreePages, fetchFreePages, fetchPageSettings, publishSelectedPage,
   unpublishSelectedPage, loadSelectedPage, removePage, sendDeletePage, clearSearchPage, clearSearch,
   setReferenceSelectedPage, clonePage, clearTree, sendPutPageSettings, sendPatchPage,
-  fetchPageTreeAll, setBatchExpanded,
+  fetchPageTreeAll, setBatchExpanded, fetchDashboardPages,
 } from 'state/pages/actions';
 
 import {
   ADD_PAGES, SET_PAGE_LOADING, SET_PAGE_LOADED, SET_PAGE_EXPANDED, MOVE_PAGE, SET_PAGE_PARENT,
   SET_FREE_PAGES, SET_SELECTED_PAGE, REMOVE_PAGE, UPDATE_PAGE, CLEAR_SEARCH, SEARCH_PAGES,
-  SET_REFERENCES_SELECTED_PAGE, CLEAR_TREE, BATCH_TOGGLE_EXPANDED,
+  SET_REFERENCES_SELECTED_PAGE, CLEAR_TREE, BATCH_TOGGLE_EXPANDED, SET_DASHBOARD_PAGES,
 } from 'state/pages/types';
 
 import { SET_PUBLISHED_PAGE_CONFIG } from 'state/page-config/types';
@@ -847,7 +847,7 @@ describe('fetchSearchPages', () => {
   });
 });
 
-describe('clonePage', () => {
+describe.only('clonePage', () => {
   let store;
   beforeEach(() => {
     store = mockStore(INITIALIZED_STATE);
@@ -857,7 +857,7 @@ describe('clonePage', () => {
     store.dispatch(clonePage('page')).then(() => {
       const actions = store.getActions();
       expect(actions).toHaveLength(1);
-      expect(history.push).toHaveBeenCalledWith(ROUTE_PAGE_CLONE);
+      expect(history.push).toHaveBeenCalledWith(`${ROUTE_PAGE_CLONE}?pageCode=undefined`);
       expect(initialize).toHaveBeenCalled();
       done();
     }).catch(done.fail);
@@ -865,7 +865,7 @@ describe('clonePage', () => {
 
   it('should pass redirectTo as query parameter', (done) => {
     store.dispatch(clonePage('page', 'redirectToPage')).then(() => {
-      expect(history.push).toHaveBeenCalledWith(`${ROUTE_PAGE_CLONE}?redirectTo=redirectToPage`);
+      expect(history.push).toHaveBeenCalledWith(`${ROUTE_PAGE_CLONE}?pageCode=undefined&redirectTo=redirectToPage`);
       done();
     }).catch(done.fail);
   });
@@ -884,5 +884,37 @@ describe('fetchPageTreeAll()', () => {
     store.dispatch(fetchPageTreeAll());
     const actionTypes = store.getActions().map(action => action.type);
     expect(actionTypes.includes(SET_PAGE_LOADING)).toBe(true);
+  });
+});
+
+describe('fetchDashboardPages', () => {
+  let store;
+  beforeEach(() => {
+    store = mockStore(INITIALIZED_STATE);
+  });
+
+  it('should dispatch SET_DASHBOARD_PAGES and SET_PAGE if successful', (done) => {
+    store.dispatch(fetchDashboardPages('page')).then(() => {
+      expect(getSearchPages).toHaveBeenCalled();
+      const actions = store.getActions();
+      expect(actions).toHaveLength(2);
+      expect(actions[0]).toHaveProperty('type', SET_DASHBOARD_PAGES);
+      expect(actions[1]).toHaveProperty('type', SET_PAGE);
+      done();
+    }).catch(done.fail);
+  });
+
+  it('should dispatch add errors if the response is not ok', async () => {
+    getSearchPages.mockImplementation(mockApi({ errors: true }));
+    return store.dispatch(fetchDashboardPages('page')).catch((e) => {
+      expect(getSearchPages).toHaveBeenCalled();
+      const actions = store.getActions();
+      expect(actions).toHaveLength(1);
+      expect(actions[0]).toHaveProperty('type', ADD_ERRORS);
+      expect(e).toHaveProperty('errors');
+      e.errors.forEach((error, index) => {
+        expect(error.message).toEqual(actions[0].payload.errors[index]);
+      });
+    });
   });
 });

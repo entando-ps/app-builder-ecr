@@ -12,8 +12,10 @@ export const getPagesMap = state => state.pages.map;
 export const getChildrenMap = state => state.pages.childrenMap;
 export const getStatusMap = state => state.pages.statusMap;
 export const getTitlesMap = state => state.pages.titlesMap;
+export const getViewPages = state => state.pages.viewPages;
 export const getSelectedPage = state => state.pages.selected;
 export const getSearchPagesRaw = state => state.pages.search;
+export const getDashboardPages = state => state.pages.dashboard;
 
 export const getSearchPages = createSelector(
   [getSearchPagesRaw, getChildrenMap],
@@ -114,6 +116,13 @@ export const getPageTreePages = createSelector(
           hasPublishedChildren = pageChildren[pageCode]
             .some(el => pages[el] && pages[el].status === PAGE_STATUS_PUBLISHED);
         }
+
+        const title = pagesTitles[pageCode][locale]
+          || pagesTitles[pageCode][defaultLang]
+          || pagesTitles[pageCode][
+            Object.keys(pagesTitles[pageCode]).find(langCode => pagesTitles[pageCode][langCode])
+          ];
+
         return ({
           ...pages[pageCode],
           ...PAGE_STATUS_DEFAULTS,
@@ -122,7 +131,7 @@ export const getPageTreePages = createSelector(
           isEmpty,
           hasPublishedChildren,
           parentStatus,
-          title: pagesTitles[pageCode][locale] || pagesTitles[pageCode][defaultLang],
+          title,
         });
       })),
 );
@@ -181,8 +190,8 @@ export const getSelectedPagePreviewURI = createSelector(
 );
 
 export const getSelectedPublishedPageURI = createSelector(
-  getSelectedPage, getDomain, getLocale,
-  (selectedPage, domain, locale) => (
-    `${domain}/${locale}/${selectedPage.code}.page`
+  getSelectedPage, getDomain, getLocale, getDefaultLanguage,
+  (selectedPage, domain, locale, defaultLang) => (
+    `${domain}/${defaultLang || locale}/${selectedPage.code}.page`
   ),
 );

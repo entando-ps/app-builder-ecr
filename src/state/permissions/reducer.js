@@ -1,10 +1,12 @@
 import { combineReducers } from 'redux';
 import { get, flatten } from 'lodash';
-import { ROLE_SUPERUSER, CRUD_USERS_PERMISSION, VIEW_USERS_AND_PROFILES_PERMISSION, EDIT_USER_PROFILES_PERMISSION } from 'state/permissions/const';
+import { SUPERUSER_PERMISSION, CRUD_USERS_PERMISSION, VIEW_USERS_AND_PROFILES_PERMISSION, EDIT_USER_PROFILES_PERMISSION } from 'state/permissions/const';
 import {
   SET_PERMISSIONS,
   SET_LOGGED_USER_PERMISSIONS,
   CLEAR_LOGGED_USER_PERMISSIONS,
+  SET_MY_GROUP_PERMISSIONS,
+  SET_LOGGED_USER_PERMISSIONS_LOADED,
 } from 'state/permissions/types';
 
 export const toMap = array => array.reduce((acc, permission) => {
@@ -44,12 +46,15 @@ const loggedUser = (state = null, action = {}) => {
         stringToArr(authority.permissions ? authority.permissions : get(authority, 'role', []))
       ));
       const roles = Array.from(new Set(flatten(authorityMaps)));
+      if (roles.includes(SUPERUSER_PERMISSION)) {
+        return allPermissions;
+      }
       if (roles.includes(CRUD_USERS_PERMISSION) || roles.includes(EDIT_USER_PROFILES_PERMISSION)) {
         if (!roles.includes(VIEW_USERS_AND_PROFILES_PERMISSION)) {
           roles.push(VIEW_USERS_AND_PROFILES_PERMISSION);
         }
       }
-      return roles.includes(ROLE_SUPERUSER) ? allPermissions : roles;
+      return roles;
     }
     case CLEAR_LOGGED_USER_PERMISSIONS:
       return null;
@@ -57,8 +62,44 @@ const loggedUser = (state = null, action = {}) => {
   }
 };
 
+const loggedUserGroup = (state = null, action = {}) => {
+  switch (action.type) {
+    case SET_LOGGED_USER_PERMISSIONS: {
+      const { result } = action.payload;
+      return result;
+    }
+    case CLEAR_LOGGED_USER_PERMISSIONS:
+      return null;
+    default: return state;
+  }
+};
+
+const loggedUserPermissionsLoaded = (state = false, action = {}) => {
+  switch (action.type) {
+    case SET_LOGGED_USER_PERMISSIONS_LOADED: {
+      return action.payload;
+    }
+    case CLEAR_LOGGED_USER_PERMISSIONS: {
+      return false;
+    }
+    default: return state;
+  }
+};
+
+const myGroupPermissions = (state = [], action = {}) => {
+  switch (action.type) {
+    case SET_MY_GROUP_PERMISSIONS:
+      return action.payload;
+    default:
+      return state;
+  }
+};
+
 export default combineReducers({
   list,
   map: permissionMap,
   loggedUser,
+  myGroupPermissions,
+  loggedUserGroup,
+  loggedUserPermissionsLoaded,
 });

@@ -4,8 +4,8 @@ import { addToast, addErrors, TOAST_SUCCESS, TOAST_ERROR } from '@entando/messag
 import { setPage } from 'state/pagination/actions';
 import {
   getPage, getPageChildren, setPagePosition, postPage, deletePage, getFreePages,
-  getPageSettings, putPage, putPageStatus, getSearchPages,
-  putPageSettings, patchPage, getPageSEO, postPageSEO, putPageSEO,
+  getPageSettings, putPage, putPageStatus, getViewPages, getSearchPages,
+  putPageSettings, patchPage, getPageSEO, postPageSEO, putPageSEO, postClonePage,
 } from 'api/pages';
 import {
   getStatusMap,
@@ -17,15 +17,17 @@ import {
 import { makeGetSelectedPageConfig } from 'state/page-config/selectors';
 import { setPublishedPageConfig } from 'state/page-config/actions';
 import {
-  ADD_PAGES, SET_PAGE_LOADING, SET_PAGE_LOADED, SET_PAGE_EXPANDED, SET_PAGE_PARENT,
+  ADD_PAGES, SET_PAGE_LOADING, SET_PAGE_LOADED, SET_PAGE_EXPANDED, SET_PAGE_PARENT, SET_VIEWPAGES,
   MOVE_PAGE, SET_FREE_PAGES, SET_SELECTED_PAGE, REMOVE_PAGE, UPDATE_PAGE, SEARCH_PAGES,
   CLEAR_SEARCH, SET_REFERENCES_SELECTED_PAGE, CLEAR_TREE, BATCH_TOGGLE_EXPANDED, COLLAPSE_ALL,
+  SET_DASHBOARD_PAGES,
 } from 'state/pages/types';
 import { HOMEPAGE_CODE, PAGE_STATUS_DRAFT, PAGE_STATUS_PUBLISHED, PAGE_STATUS_UNPUBLISHED, SEO_ENABLED } from 'state/pages/const';
 import { history, ROUTE_PAGE_TREE, ROUTE_PAGE_CLONE, ROUTE_PAGE_ADD } from 'app-init/router';
 import { generateJsonPatch } from 'helpers/jsonPatch';
 import getSearchParam from 'helpers/getSearchParam';
 import { toggleLoading } from 'state/loading/actions';
+import { getDefaultLanguage } from 'state/languages/selectors';
 
 import { APP_TOUR_CANCELLED, APP_TOUR_STARTED, APP_TOUR_HOMEPAGE_CODEREF } from 'state/app-tour/const';
 import { setExistingPages } from 'state/app-tour/actions';
@@ -48,6 +50,11 @@ export const addPages = pages => ({
   payload: {
     pages,
   },
+});
+
+export const setViewPages = pages => ({
+  type: SET_VIEWPAGES,
+  payload: pages,
 });
 
 export const setSearchPages = pages => ({
@@ -150,6 +157,13 @@ export const collapseAll = () => ({
   type: COLLAPSE_ALL,
 });
 
+export const setDashboardPages = pages => ({
+  type: SET_DASHBOARD_PAGES,
+  payload: {
+    pages,
+  },
+});
+
 const wrapApiCall = apiFunc => (...args) => async (dispatch) => {
   const response = await apiFunc(...args);
   const json = await response.json();
@@ -168,11 +182,24 @@ export const fetchPage = wrapApiCall(getPage);
 export const fetchPageInfo = wrapApiCall(SEO_ENABLED ? getPageSEO : getPage);
 export const fetchPageChildren = wrapApiCall(getPageChildren);
 
+export const fetchViewPages = () => dispatch => new Promise((resolve) => {
+  getViewPages().then((response) => {
+    response.json().then((json) => {
+      if (response.ok) {
+        dispatch(setViewPages(json.payload));
+      } else {
+        dispatch(addErrors(json.errors.map(err => err.message)));
+      }
+      resolve();
+    });
+  }).catch(() => {});
+});
+
 export const sendDeletePage = (page, successRedirect = true) => async (dispatch) => {
   try {
     const response = await deletePage(page);
     const json = await response.json();
-    if (response.ok) {
+    if (response) {
       dispatch(removePage(page));
       if (page.tourProgress === APP_TOUR_CANCELLED) return;
       if (page.tourProgress !== APP_TOUR_STARTED && successRedirect) {
@@ -218,7 +245,7 @@ export const handleExpandPage = (pageCode = HOMEPAGE_CODE, alwaysExpand) => (
           dispatch(setPageLoaded(pageCode));
           if (
             pageCode === APP_TOUR_HOMEPAGE_CODEREF &&
-            getAppTourProgress(state) === APP_TOUR_STARTED
+            getAppTourProgress(state) !== APP_TOUR_CANCELLED
           ) {
             dispatch(setExistingPages(pages));
           }
@@ -313,6 +340,40 @@ export const sendPostPage = pageData => dispatch => new Promise(async (resolve) 
   }
 });
 
+export const sendClonePage = (pageCode, pageData) => dispatch => new Promise(async (resolve) => {
+  try {
+    const { titles, parentCode, code } = pageData;
+
+    const requestBody = {
+      newPageCode: code,
+      parentCode,
+      titles,
+    };
+
+    const response = await postClonePage(pageCode, requestBody);
+
+    const json = await response.json();
+    if (response.ok) {
+      dispatch(addToast({ id: 'pages.created' }, TOAST_SUCCESS));
+      dispatch(addPages([json.payload]));
+      resolve(response);
+    } else {
+      dispatch(addErrors(json.errors.map(e => e.message)));
+      json.errors.forEach(err => dispatch(addToast(err.message, TOAST_ERROR)));
+      resolve();
+    }
+  } catch (e) {
+    const { details, defaultMessage } = e;
+    if (details && defaultMessage) {
+      const detailMessage = details.map(er => er.message).join('; ');
+      const combinedErrors = [defaultMessage, detailMessage].join(' - ');
+      dispatch(addErrors([combinedErrors]));
+      dispatch(addToast(combinedErrors, TOAST_ERROR));
+    }
+    resolve();
+  }
+});
+
 export const fetchFreePages = () => async (dispatch) => {
   try {
     const response = await getFreePages();
@@ -335,9 +396,9 @@ export const clonePage = (page, redirectTo = null) => async (dispatch) => {
       ...json.payload,
       ...RESET_FOR_CLONE,
     }));
-    let pageCloneUrl = ROUTE_PAGE_CLONE;
+    let pageCloneUrl = `${ROUTE_PAGE_CLONE}?pageCode=${page.code}`;
     if (redirectTo) {
-      pageCloneUrl += `?redirectTo=${redirectTo}`;
+      pageCloneUrl += `&redirectTo=${redirectTo}`;
     }
     history.push(pageCloneUrl);
   } catch (e) {
@@ -441,8 +502,22 @@ export const sendPatchPage = pageData => async (dispatch, getState) => {
   }
 };
 
-export const fetchPageForm = pageCode => dispatch => fetchPageInfo(pageCode)(dispatch)
-  .then(response => dispatch(initialize('pageEdit', response.payload)))
+export const fetchPageForm = pageCode => (dispatch, getState) => fetchPageInfo(pageCode)(dispatch)
+  .then((response) => {
+    const { seoData: { seoDataByLang }, titles } = response.payload;
+    const deflang = getDefaultLanguage(getState());
+    const languages = Object.keys(seoDataByLang).filter(lang => lang !== deflang);
+    languages.forEach((lang) => {
+      if (!titles[lang]) {
+        titles[lang] = titles[deflang];
+      }
+    });
+    const formValues = {
+      ...response.payload,
+      titles,
+    };
+    dispatch(initialize('pageEdit', formValues));
+  })
   .catch(() => {});
 
 export const loadSelectedPage = pageCode => dispatch =>
@@ -471,8 +546,10 @@ const putSelectedPageStatus = status => (dispatch, getState) =>
         if (status === PAGE_STATUS_PUBLISHED) {
           const draftConfig = makeGetSelectedPageConfig(page.code)(getState());
           dispatch(setPublishedPageConfig(newPage.code, draftConfig));
+          dispatch(addToast({ id: 'pages.status.published' }, TOAST_SUCCESS));
         } else {
           dispatch(setPublishedPageConfig(newPage.code, null));
+          dispatch(addToast({ id: 'pages.status.unpublished' }, TOAST_SUCCESS));
         }
       } else {
         response.json().then((json) => {
@@ -529,4 +606,20 @@ export const fetchPageTreeAll = () => (dispatch, getState) => {
         dispatch(fetchPageTreeAll());
       }
     });
+};
+
+export const fetchDashboardPages = (page = { page: 1, pageSize: 10 }, params = '') => async (dispatch) => {
+  try {
+    const response = await getSearchPages(page, params);
+    const json = await response.json();
+    if (response.ok) {
+      dispatch(setDashboardPages(json.payload));
+      dispatch(setPage(json.metaData));
+    } else {
+      dispatch(addErrors(json.errors.map(e => e.message)));
+      json.errors.forEach(err => dispatch(addToast(err.message, TOAST_ERROR)));
+    }
+  } catch (e) {
+    // do nothing
+  }
 };

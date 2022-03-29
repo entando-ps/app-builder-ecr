@@ -34,6 +34,7 @@ describe('PageForm', () => {
           handleSubmit={HANDLE_SUBMIT}
           languages={LANGUAGES}
           groups={GROUPS}
+          allGroups={GROUPS}
           pageTemplates={PAGE_TEMPLATES}
           contentTypes={CONTENT_TYPES}
           charsets={CHARSETS}
@@ -107,6 +108,7 @@ describe('PageForm', () => {
           handleSubmit={HANDLE_SUBMIT}
           languages={LANGUAGES}
           groups={GROUPS}
+          allGroups={GROUPS}
           pageTemplates={PAGE_TEMPLATES}
           contentTypes={CONTENT_TYPES}
           charsets={CHARSETS}
@@ -137,6 +139,7 @@ describe('PageForm', () => {
           languages={LANGUAGES}
           handleSubmit={HANDLE_SUBMIT}
           groups={GROUPS}
+          allGroups={GROUPS}
           pageTemplates={PAGE_TEMPLATES}
           contentTypes={CONTENT_TYPES}
           charsets={CHARSETS}
@@ -163,6 +166,7 @@ describe('PageForm', () => {
           handleSubmit={HANDLE_SUBMIT}
           languages={LANGUAGES}
           groups={GROUPS}
+          allGroups={GROUPS}
           pageTemplates={PAGE_TEMPLATES}
           contentTypes={CONTENT_TYPES}
           charsets={CHARSETS}
@@ -189,6 +193,7 @@ describe('PageForm', () => {
           handleSubmit={HANDLE_SUBMIT}
           languages={LANGUAGES}
           groups={GROUPS}
+          allGroups={GROUPS}
           pageTemplates={PAGE_TEMPLATES}
           contentTypes={CONTENT_TYPES}
           charsets={CHARSETS}
@@ -203,6 +208,31 @@ describe('PageForm', () => {
     });
     it('Save and configure button is enabled', () => {
       expect(component.find('.PageForm__save-and-configure-btn').prop('disabled')).toBe(false);
+    });
+  });
+
+  describe('on edit mode', () => {
+    let component;
+    beforeEach(() => {
+      component = shallow((
+        <PageFormBody
+          onSubmit={ON_SUBMIT}
+          handleSubmit={HANDLE_SUBMIT}
+          languages={LANGUAGES}
+          groups={GROUPS}
+          allGroups={GROUPS}
+          pageTemplates={PAGE_TEMPLATES}
+          contentTypes={CONTENT_TYPES}
+          charsets={CHARSETS}
+          selectedJoinGroups={[]}
+          invalid={false}
+          intl={mockIntl}
+          mode="edit"
+        />
+      ));
+    });
+    it('Owner group should be disabled', () => {
+      expect(component.find('Field[name="ownerGroup"]').prop('disabled')).toBe(true);
     });
   });
 });

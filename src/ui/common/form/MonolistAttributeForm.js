@@ -36,14 +36,23 @@ const NO_INFO_ATTRIBUTE = [
 ];
 
 export class MonolistAttributeFormBody extends Component {
-  componentWillMount() {
-    this.props.onWillMount(this.props);
+  componentDidMount() {
+    const { onDidMount, ...allprops } = this.props;
+    onDidMount(allprops);
   }
+
+  componentDidUpdate(prevProps) {
+    const { type, onFetchNestedAttribute } = this.props;
+    if (type && type !== prevProps.type) {
+      onFetchNestedAttribute(this.props);
+    }
+  }
+
   render() {
     const {
-      attributeCode, selectedAttributeType, isIndexable, type, invalid,
+      attributeCode, selectedAttribute, selectedAttributeType, isIndexable, type, invalid,
       submitting, onSubmit, mode, attributesList, onAddAttribute, onClickDelete, onMove,
-      compositeAttributes,
+      compositeAttributes, handleSubmit,
     } = this.props;
     const isMonoListComposite = mode === MODE_ADD_MONOLIST_ATTRIBUTE_COMPOSITE;
     const attributeType = isMonoListComposite ? TYPE_COMPOSITE : type;
@@ -73,7 +82,7 @@ export class MonolistAttributeFormBody extends Component {
           <legend>
             <FormattedMessage id="app.info" />
             <div className="MonolistAttributeForm__required-fields text-right">
-               * <FormattedMessage id="app.fieldsRequired" />
+              * <FormattedMessage id="app.fieldsRequired" />
             </div>
           </legend>
           <Field
@@ -106,12 +115,12 @@ export class MonolistAttributeFormBody extends Component {
         );
         case TYPE_ENUMERATOR: return (
           <AttributeEnumSettings
-            enumeratorExtractorBeans={selectedAttributeType.enumeratorExtractorBeans}
+            enumeratorExtractorBeans={selectedAttribute.enumeratorExtractorBeans}
           />
         );
         case TYPE_ENUMERATOR_MAP: return (
           <AttributeEnumMapSettings
-            enumeratorMapExtractorBeans={selectedAttributeType.enumeratorMapExtractorBeans}
+            enumeratorMapExtractorBeans={selectedAttribute.enumeratorMapExtractorBeans}
           />
         );
         case TYPE_COMPOSITE: {
@@ -146,9 +155,12 @@ export class MonolistAttributeFormBody extends Component {
           {type},&nbsp;
           <FormattedMessage id="app.element.of" />&nbsp;
           {attributeCode}&nbsp;
-           ({isMonoListComposite ? TYPE_MONOLIST : selectedAttributeType}).
+          ({isMonoListComposite ? TYPE_MONOLIST : selectedAttributeType}).
         </Alert>
-        <form onSubmit={this.props.handleSubmit(onSubmit)} className="form-horizontal">
+        <form
+          onSubmit={handleSubmit(values => onSubmit(values, mode, selectedAttribute))}
+          className="form-horizontal"
+        >
           <Row>
             <Col xs={12}>
               <fieldset className="no-padding">
@@ -180,7 +192,7 @@ export class MonolistAttributeFormBody extends Component {
 }
 
 MonolistAttributeFormBody.propTypes = {
-  onWillMount: PropTypes.func.isRequired,
+  onDidMount: PropTypes.func.isRequired,
   handleSubmit: PropTypes.func.isRequired,
   onSubmit: PropTypes.func.isRequired,
   onAddAttribute: PropTypes.func,
@@ -188,6 +200,13 @@ MonolistAttributeFormBody.propTypes = {
   onMove: PropTypes.func,
   type: PropTypes.string,
   attributeCode: PropTypes.string,
+  selectedAttribute: PropTypes.shape({
+    enumeratorExtractorBeans: PropTypes.arrayOf(PropTypes.string),
+    enumeratorMapExtractorBeans: PropTypes.arrayOf(PropTypes.shape({
+      code: PropTypes.string,
+      descr: PropTypes.string,
+    })),
+  }),
   selectedAttributeType: PropTypes.string,
   mode: PropTypes.string,
   attributesList: PropTypes.arrayOf(PropTypes.string),
@@ -195,6 +214,7 @@ MonolistAttributeFormBody.propTypes = {
   invalid: PropTypes.bool,
   submitting: PropTypes.bool,
   compositeAttributes: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  onFetchNestedAttribute: PropTypes.func,
 };
 
 MonolistAttributeFormBody.defaultProps = {
@@ -206,13 +226,15 @@ MonolistAttributeFormBody.defaultProps = {
   isIndexable: false,
   type: '',
   attributeCode: '',
+  selectedAttribute: {},
   selectedAttributeType: TYPE_MONOLIST,
   mode: '',
   attributesList: [],
+  onFetchNestedAttribute: () => {},
 };
 
 const MonolistAttributeForm = reduxForm({
-  form: 'monoListAttribute',
+  form: 'attribute',
 })(MonolistAttributeFormBody);
 
 export default MonolistAttributeForm;

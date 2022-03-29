@@ -50,10 +50,6 @@ import {
   ROUTE_LABEL_ADD,
   ROUTE_LABEL_EDIT,
   ROUTE_GROUP_DETAIL,
-  ROUTE_CATEGORY_LIST,
-  ROUTE_CATEGORY_ADD,
-  ROUTE_CATEGORY_EDIT,
-  ROUTE_CATEGORY_DETAIL,
   ROUTE_ROLE_LIST,
   ROUTE_ROLE_ADD,
   ROUTE_ROLE_EDIT,
@@ -140,10 +136,6 @@ import AddLabelPage from 'ui/labels/add/AddLabelPage';
 import EditLabelPage from 'ui/labels/edit/EditLabelPage';
 import LabelsAndLanguagesPageContainer from 'ui/labels/list/LabelsAndLanguagesPageContainer';
 import DetailGroupPage from 'ui/groups/detail/DetailGroupPage';
-import ListCategoryPage from 'ui/categories/list/ListCategoryPage';
-import AddCategoryPage from 'ui/categories/add/AddCategoryPage';
-import EditCategoryPage from 'ui/categories/edit/EditCategoryPage';
-import DetailCategoryPage from 'ui/categories/detail/DetailCategoryPage';
 import ListRolePage from 'ui/roles/list/ListRolePage';
 import AddRolePage from 'ui/roles/add/AddRolePage';
 import EditRolePage from 'ui/roles/edit/EditRolePage';
@@ -184,6 +176,7 @@ import CloneWidgetPage from 'ui/widgets/clone/CloneWidgetPage';
 import EmailConfigPage from 'ui/email-config/EmailConfigPage';
 
 import InternalPage from 'ui/internal-page/InternalPage';
+import RowSpinner from 'ui/pages/common/RowSpinner';
 import entandoApps from 'entando-apps';
 import AboutPage from 'ui/about/AboutPage';
 import LicensePage from 'ui/license/LicensePage';
@@ -197,6 +190,7 @@ const appsRoutes = entandoApps.reduce((routes, app) => (
         exact
         key={AppRoute.path}
         path={AppRoute.path}
+        // eslint-disable-next-line react/jsx-pascal-case
         render={() => <InternalPage><AppRoute.component /></InternalPage>}
       />
     )),
@@ -274,11 +268,6 @@ const getRouteComponent = () => {
       <Route exact path={ROUTE_LABELS_AND_LANGUAGES} component={LabelsAndLanguagesPageContainer} />
       <Route path={ROUTE_LABEL_ADD} component={AddLabelPage} />
       <Route path={ROUTE_LABEL_EDIT} component={EditLabelPage} />
-      {/* categories */}
-      <Route exact path={ROUTE_CATEGORY_LIST} component={ListCategoryPage} />
-      <Route path={ROUTE_CATEGORY_ADD} component={AddCategoryPage} />
-      <Route path={ROUTE_CATEGORY_EDIT} component={EditCategoryPage} />
-      <Route path={ROUTE_CATEGORY_DETAIL} component={DetailCategoryPage} />
       {/* roles */}
       <Route exact path={ROUTE_ROLE_LIST} component={ListRolePage} />
       <Route path={ROUTE_ROLE_ADD} component={AddRolePage} />
@@ -375,15 +364,19 @@ class App extends Component {
       auth,
       isReady,
       username,
+      loggedUserPrefloading,
     } = this.props;
     if (!username && currentRoute !== ROUTE_HOME) {
-      return <Redirect to={ROUTE_HOME} />;
+      return <Redirect to={{ pathname: ROUTE_HOME, search: `?redirect_uri=${currentRoute}` }} />;
+    }
+
+    if (!loggedUserPrefloading) {
+      return <div className="shell-preload"><RowSpinner loading /></div>;
     }
 
     const readyDisplay = !auth.enabled || auth.authenticated
       ? getRouteComponent()
       : <LoginPage />;
-
     return (
       <DDProvider>
         <ToastsContainer />
@@ -396,10 +389,11 @@ class App extends Component {
 App.propTypes = {
   currentRoute: PropTypes.string.isRequired,
   username: PropTypes.string,
-  auth: PropTypes.shape({ enabled: PropTypes.bool }),
+  auth: PropTypes.shape({ enabled: PropTypes.bool, authenticated: PropTypes.bool }),
   isReady: PropTypes.bool,
   fetchPlugins: PropTypes.func,
   fetchUserPreferences: PropTypes.func,
+  loggedUserPrefloading: PropTypes.bool,
 };
 
 App.defaultProps = {
@@ -408,6 +402,7 @@ App.defaultProps = {
   fetchPlugins: () => {},
   fetchUserPreferences: () => {},
   isReady: false,
+  loggedUserPrefloading: false,
 };
 
 export default withAuth(App);

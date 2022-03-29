@@ -20,6 +20,8 @@ import {
   TOGGLE_CONFLICTS_MODAL,
   UPDATE_INSTALL_PLAN,
   UPDATE_ALL_INSTALL_PLAN,
+  SET_SELECTED_INSTALL_VERSION,
+  SET_INSTALL_HAS_CONFLICTING_VERSION,
 } from 'state/component-repository/components/types';
 
 import {
@@ -96,7 +98,14 @@ const markComponentInstalledStatus = (state, componentCode, installed, installed
   if (componentIndex === -1) {
     return state;
   }
-  return updateComponentInfo(state, componentIndex, { installed, installedJob });
+  return updateComponentInfo(
+    state, componentIndex,
+    {
+      installed,
+      customInstallation: installedJob ? installedJob.customInstallation : false,
+      installedJob,
+    },
+  );
 };
 
 const markComponentAsInstalled = (state, componentCode, installedJob) => (
@@ -262,6 +271,9 @@ const installation = (state = {}, action = {}) => {
     case COMPONENT_INSTALLATION_FAILED: {
       return { ...omit(state, action.payload.code) };
     }
+    case SET_SELECTED_INSTALL_VERSION: {
+      return { ...state, selectedVersion: action.payload.version };
+    }
     default: return state;
   }
 };
@@ -301,10 +313,10 @@ const progressStatus = (state = 0, action = {}) => {
 };
 
 const initialInstallConflictsState = {
-  open: false, installPlan: null, component: {}, version: 'latest',
+  open: false, installPlan: null, component: {}, version: null, readOnly: false,
 };
 
-const updateAllActions = (installPlan, type) =>
+export const updateAllActions = (installPlan, type) =>
   Object.keys(installPlan).reduce((acc, key) => {
     if (isPlainObject(installPlan[key]) && !isEmpty(installPlan[key])) {
       // map through component names
@@ -312,7 +324,7 @@ const updateAllActions = (installPlan, type) =>
         ...acc2,
         [key2]: {
           ...installPlan[key][key2],
-          action: installPlan[key][key2].status === 'NEW' ? 'CREATE' : type,
+          action: installPlan[key][key2].status === 'NEW' ? 'CREATE' : type || installPlan[key][key2].action,
         },
       }), {});
 
@@ -364,6 +376,9 @@ const installConflicts = (state = initialInstallConflictsState, action = {}) => 
         ...state,
         installPlan: updateAllActions(installPlan, type),
       };
+    }
+    case SET_INSTALL_HAS_CONFLICTING_VERSION: {
+      return { ...state, hasConflictingVersion: action.payload.hasConflictingVersion };
     }
     default: return state;
   }

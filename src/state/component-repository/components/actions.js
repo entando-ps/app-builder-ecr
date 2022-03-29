@@ -25,6 +25,8 @@ import {
   TOGGLE_CONFLICTS_MODAL,
   UPDATE_INSTALL_PLAN,
   UPDATE_ALL_INSTALL_PLAN,
+  SET_SELECTED_INSTALL_VERSION,
+  SET_INSTALL_HAS_CONFLICTING_VERSION,
 } from 'state/component-repository/components/types';
 import pollApi from 'helpers/pollApi';
 import {
@@ -50,8 +52,10 @@ import {
 } from 'state/component-repository/components/const';
 import { setVisibleModal } from 'state/modal/actions';
 import { MODAL_ID } from 'ui/component-repository/components/InstallationPlanModal';
+import { fetchBundleStatuses, fetchSelectedBundleStatusWithCode } from 'state/component-repository/hub/actions';
+import { updateAllActions } from 'state/component-repository/components/reducer';
 
-const POLLING_TIMEOUT_IN_MS = 1000 * 60 * 3; // 3 minutes
+const POLLING_TIMEOUT_IN_MS = 1000 * 60 * 5; // 5 minutes
 
 export const setSelectedECRComponent = componentRepositoryComponent => ({
   type: SET_SELECTED_ECR_COMPONENT,
@@ -165,13 +169,14 @@ export const setInstallUninstallProgress = progress => ({
   },
 });
 
-export const toggleConflictsModal = (open, installPlan, component, version) => ({
+export const toggleConflictsModal = (open, installPlan, component, version, readOnly) => ({
   type: TOGGLE_CONFLICTS_MODAL,
   payload: {
     open,
     installPlan,
     component,
     version,
+    readOnly,
   },
 });
 
@@ -186,6 +191,20 @@ export const updateAllInstallPlan = action => ({
   type: UPDATE_ALL_INSTALL_PLAN,
   payload: {
     action,
+  },
+});
+
+export const setSelectedComponentInstallVersion = version => ({
+  type: SET_SELECTED_INSTALL_VERSION,
+  payload: {
+    version,
+  },
+});
+
+export const setInstallHasConflictingVersion = hasConflictingVersion => ({
+  type: SET_INSTALL_HAS_CONFLICTING_VERSION,
+  payload: {
+    hasConflictingVersion,
   },
 });
 
@@ -209,11 +228,19 @@ export const pollECRComponentInstallStatus = (componentCode, stepFunction) => di
       .then((res) => {
         if (res.payload.status === ECR_COMPONENT_INSTALLATION_STATUS_COMPLETED) {
           dispatch(finishComponentInstallation(componentCode, res.payload));
+          dispatch(fetchSelectedBundleStatusWithCode(componentCode));
         } else {
           dispatch(componentInstallationFailed(componentCode));
-          if (res.payload.status === ECR_COMPONENT_INSTALLATION_STATUS_ROLLBACK) {
+          if (res.payload.installErrorMessage) {
             dispatch(addToast(
-              { id: 'componentRepository.components.installRollback' },
+              res.payload.installErrorMessage,
+              TOAST_WARNING,
+            ));
+          }
+
+          if (res.payload.rollbackErrorMessage) {
+            dispatch(addToast(
+              res.payload.rollbackErrorMessage,
               TOAST_WARNING,
             ));
           }
@@ -282,7 +309,7 @@ const procceedWithInstall = (component, body, resolve, dispatch, logProgress, lo
       }
     });
 
-export const installECRComponent = (component, version = 'latest', logProgress, resolvedInstallPlan) =>
+export const installECRComponent = (component, version, logProgress, resolvedInstallPlan) =>
   dispatch => (
     new Promise((resolve) => {
       const loadingId = `deComponentInstallUninstall-${component.code}`;
@@ -301,8 +328,9 @@ export const installECRComponent = (component, version = 'latest', logProgress, 
             response.json().then(({ payload: installPlan }) => {
               if (!installPlan.hasConflicts) {
                 // no conflicts
+                const defaultInstallPlan = updateAllActions(installPlan, 'CREATE');
                 procceedWithInstall(
-                  component, { version }, resolve,
+                  component, { ...defaultInstallPlan, version }, resolve,
                   dispatch, logProgress, loadingId,
                 );
               } else {
@@ -312,12 +340,49 @@ export const installECRComponent = (component, version = 'latest', logProgress, 
                 dispatch(toggleConflictsModal(true, installPlan, component, version));
               }
             });
-          }).catch(() => {
+          }).catch((error) => {
+            if (error && error.message) {
+              dispatch(addErrors([error.message]));
+              dispatch(addToast(error.message, TOAST_ERROR));
+            }
             dispatch(toggleLoading(loadingId));
           });
       }
     })
   );
+
+export const getInstallPlan = component => dispatch => (
+  new Promise((resolve) => {
+    const loadingId = 'component-repository/component-usage';
+    dispatch(toggleLoading(loadingId));
+    getECRComponentInstallPlan(component.code).then((response) => {
+      response.json().then(({ payload, errors }) => {
+        try {
+          if (errors && errors.length) {
+            dispatch(addErrors(errors.map(err => err.message)));
+            errors.forEach(err => dispatch(addToast(err.message, TOAST_ERROR)));
+          } else {
+            const installPlan = typeof payload.installPlan === 'string' ? JSON.parse(payload.installPlan) : payload.installPlan;
+            // show conflict modal
+            dispatch(setVisibleModal(MODAL_ID));
+            dispatch(toggleConflictsModal(true, installPlan, component, null, true));
+          }
+        } catch (e) {
+          dispatch(addToast(e.message, TOAST_ERROR));
+        } finally {
+          dispatch(toggleLoading(loadingId));
+          resolve();
+        }
+      });
+    }).catch(() => {
+      dispatch(addToast(
+        { id: 'componentRepository.components.installPlanFailed' },
+        TOAST_ERROR,
+      ));
+      dispatch(toggleLoading(loadingId));
+    });
+  })
+);
 
 export const pollECRComponentUninstallStatus = (componentCode, stepFunction) => dispatch => (
   new Promise((resolve) => {
@@ -338,6 +403,7 @@ export const pollECRComponentUninstallStatus = (componentCode, stepFunction) => 
       }) => {
         if (payload.status === ECR_COMPONENT_UNINSTALLATION_STATUS_COMPLETED) {
           dispatch(finishComponentUninstall(componentCode));
+          dispatch(fetchSelectedBundleStatusWithCode(componentCode));
         } else {
           dispatch(componentUninstallFailed(componentCode));
         }
@@ -403,6 +469,7 @@ export const fetchECRComponents = (paginationMetadata = {
     getECRComponents(paginationMetadata, params).then((response) => {
       response.json().then((data) => {
         if (response.ok) {
+          dispatch(fetchBundleStatuses(data.payload.map(component => component.repoUrl)));
           dispatch(setECRComponents(data.payload));
           dispatch(setPage(data.metaData));
 
@@ -438,12 +505,15 @@ export const fetchECRComponentDetail = code => dispatch => (
         if (response.ok) {
           dispatch(setSelectedECRComponent(json.payload));
         } else {
-          dispatch(addErrors(json.errors.map(err => err.message)));
-          json.errors.forEach(err => dispatch(addToast(err.message, TOAST_ERROR)));
+          dispatch(setSelectedECRComponent({}));
+          if (json.errors) {
+            dispatch(addErrors(json.errors.map(err => err.message)));
+            json.errors.forEach(err => dispatch(addToast(err.message, TOAST_ERROR)));
+          }
         }
         resolve();
       });
-    }).catch(() => {});
+    }).catch(() => dispatch(setSelectedECRComponent({})));
   })
 );
 

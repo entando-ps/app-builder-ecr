@@ -4,8 +4,8 @@ import ReactQuill, { Quill } from 'react-quill-2';
 import 'react-quill-2/dist/quill.snow.css';
 
 import EditorToolbar from 'ui/common/rich-text-editor/EditorToolbar';
-import SpecialCharSelectorModal from 'ui/common/rich-text-editor/SpecialCharSelectorModal';
 import LinkConfigModal from 'ui/common/modal/LinkConfigModal';
+import SpecialCharSelectorModal from 'ui/common/rich-text-editor/SpecialCharSelectorModal';
 
 const BlockEmbed = Quill.import('blots/block/embed');
 
@@ -69,6 +69,8 @@ function entable(value) {
   }
 }
 
+const handleEmpty = html => (html === '<p><br></p>' ? '' : html);
+
 class RichTextEditor extends Component {
   constructor() {
     super();
@@ -104,7 +106,7 @@ class RichTextEditor extends Component {
   }
 
   componentDidMount() {
-    const { attrCode, langCode } = this.props;
+    const { attrCode, langCode, input: { value: inputValue } } = this.props;
 
     if (this.attachQuillRefs()) {
       this.handlers = {
@@ -118,7 +120,10 @@ class RichTextEditor extends Component {
       };
       // eslint-disable-next-line react/no-did-mount-set-state
       this.setState({ editorToolbarId: `editor-toolbar_${langCode}_${attrCode}` });
-      this.timeout = window.setTimeout(() => this.setState({ editorCanWrite: true }), 100);
+      this.timeout = window.setTimeout(() => {
+        this.txtArea.value = inputValue;
+        this.setState({ editorCanWrite: true });
+      }, 100);
     }
   }
 
@@ -148,7 +153,7 @@ class RichTextEditor extends Component {
     const { input: { name } } = this.props;
     this.quill.id = name;
     const quillCont = this.quill.container;
-    const htmlEditor = quillCont.querySelector('.ql-custom') || this.quill.addContainer('ql-custom');
+    const htmlEditor = quillCont.querySelector('.ql-srccode') || this.quill.addContainer('ql-srccode');
     htmlEditor.appendChild(this.txtArea);
     return true;
   }
@@ -208,11 +213,12 @@ class RichTextEditor extends Component {
       this.quill.clipboard.dangerouslyPasteHTML(html);
     }
     this.txtArea.style.display = this.txtArea.style.display === 'none' ? '' : 'none';
+    this.txtArea.closest('.ql-srccode').classList.toggle('active');
   }
 
   render() {
     const {
-      placeholder, disabled, input, extraOptions,
+      placeholder, disabled, input, mainGroup, joinGroups, extraOptions,
     } = this.props;
 
     const { modal, editorToolbarId, editorCanWrite } = this.state;
@@ -223,7 +229,7 @@ class RichTextEditor extends Component {
         <ReactQuill
           {...input}
           ref={this.reactQuill}
-          onBlur={(_, __, editor) => input.onBlur(editor.getHTML())}
+          onBlur={(_, __, editor) => input.onBlur(handleEmpty(editor.getHTML()))}
           onChange={this.handleOnChange}
           placeholder={placeholder}
           disabled={disabled}
@@ -233,6 +239,9 @@ class RichTextEditor extends Component {
         />
         <LinkConfigModal
           isVisible={modal === 'enlink'}
+          hasResourceTab
+          mainGroup={mainGroup}
+          joinGroups={joinGroups}
           onSave={this.handleLinkConfigSave}
           onClose={this.handleModalClose}
         />
@@ -251,6 +260,7 @@ RichTextEditor.propTypes = {
     name: PropTypes.string,
     onBlur: PropTypes.func,
     onChange: PropTypes.func,
+    value: PropTypes.string,
   }).isRequired,
   placeholder: PropTypes.string,
   disabled: PropTypes.bool,

@@ -42,6 +42,7 @@ export const LIST_ECR_COMPONENTS_OK = [
       version: 'v0.0.2',
     },
     installed: false,
+    customInstallation: true,
   },
   {
     code: 'installed-example-bundle',
@@ -83,6 +84,7 @@ export const LIST_ECR_COMPONENTS_OK = [
       version: 'v0.0.1',
     },
     installed: true,
+    customInstallation: true,
   },
   {
     code: 'regular-3-version-bundle',
@@ -111,6 +113,7 @@ export const LIST_ECR_COMPONENTS_OK = [
       version: 'v0.0.3',
     },
     installed: false,
+    customInstallation: false,
   },
   {
     code: 'install-error-bundle',
@@ -154,6 +157,7 @@ export const LIST_ECR_COMPONENTS_OK = [
       version: 'v0.0.2',
     },
     installed: false,
+    customInstallation: null,
   },
   {
     code: 'example-bundle-7',
@@ -197,6 +201,7 @@ export const LIST_ECR_COMPONENTS_OK = [
       version: 'v0.0.2',
     },
     installed: true,
+    customInstallation: false,
   },
 ];
 
@@ -406,3 +411,34 @@ export const COMPONENT_INSTALL_PLAN = {
     },
   },
 };
+
+export const FAILED_INSTALL_PLAN = {
+  id: '7183b6a5-9b26-4f2b-ac3a-646417513e17',
+  componentId: 'xmasbundle',
+  componentName: 'xmasbundle-bundle',
+  componentVersion: '0.0.7',
+  startedAt: '2021-05-06T09:35:04.132865',
+  finishedAt: '2021-05-06T09:35:06.629047',
+  progress: 0.0,
+  status: 'INSTALL_ERROR',
+  installErrorCode: 100,
+  installErrorMessage: 'The plugin lcorsettientando-xmasbundle descriptor contains an invalid descriptorVersion',
+  rollbackErrorCode: 100,
+  rollbackErrorMessage: 'Rollback ERROR!!!!',
+  installPlan: '{"hasConflicts":null,"widgets":{},"fragments":{},"pages":{},"pageTemplates":{},"contents":{},"contentTemplates":{},"contentTypes":{},"assets":{},"directories":{},"resources":{},"plugins":{},"categories":{},"groups":{},"labels":{},"languages":{},"version":"latest"}',
+  customInstallation: false,
+};
+
+export const GET_COMPONENT_INSTALL_PLAN = {
+  id: 'f416862a-c82b-445d-bbc7-0639ba54e106',
+  componentId: 'myprojectecca',
+  componentName: 'myprojectecca-bundle',
+  componentVersion: 'v0.0.1',
+  startedAt: '2021-06-01T13:15:39.583279',
+  finishedAt: '2021-06-01T13:17:36.38535',
+  progress: 1.0,
+  status: 'INSTALL_COMPLETED',
+  installPlan: '{"hasConflicts":false,"widgets":{"student-form-widget":{"status":"NEW","action":"CREATE"},"student-table-widget":{"status":"NEW","action":"CREATE"},"student-details-widget":{"status":"NEW","action":"CREATE"}},"fragments":{},"pages":{},"pageTemplates":{},"contents":{},"contentTemplates":{},"contentTypes":{},"assets":{},"directories":{},"resources":{"/myprojectecca-bundle/static/js/runtime~main.6adad746.js.map":{"status":"NEW","action":"CREATE"},"/myprojectecca-bundle/static/js":{"status":"NEW","action":"CREATE"},"/myprojectecca-bundle/static/js/2.e09b6dac.chunk.js":{"status":"NEW","action":"CREATE"},"/myprojectecca-bundle/static/js/runtime~main.fbfc6baa.js":{"status":"NEW","action":"CREATE"},"/myprojectecca-bundle/static/js/runtime~main.bcdbcb86.js":{"status":"NEW","action":"CREATE"},"/myprojectecca-bundle/static/js/main.38ccc2a9.chunk.js.map":{"status":"NEW","action":"CREATE"},"/myprojectecca-bundle/static/js/runtime~main.bcdbcb86.js.map":{"status":"NEW","action":"CREATE"},"/myprojectecca-bundle/static/js/main.f7283893.chunk.js.map":{"status":"NEW","action":"CREATE"},"/myprojectecca-bundle/static/js/runtime~main.fbfc6baa.js.map":{"status":"NEW","action":"CREATE"},"/myprojectecca-bundle/static/js/2.bfcc9292.chunk.js":{"status":"NEW","action":"CREATE"},"/myprojectecca-bundle/static/js/2.e09b6dac.chunk.js.map":{"status":"NEW","action":"CREATE"},"/myprojectecca-bundle/static/js/runtime~main.6adad746.js":{"status":"NEW","action":"CREATE"},"/myprojectecca-bundle/static/js/main.a6fed164.chunk.js":{"status":"NEW","action":"CREATE"},"/myprojectecca-bundle/static/css":{"status":"NEW","action":"CREATE"},"/myprojectecca-bundle/static/js/main.a6fed164.chunk.js.map":{"status":"NEW","action":"CREATE"},"/myprojectecca-bundle":{"status":"NEW","action":"CREATE"},"/myprojectecca-bundle/static/css/main.552b72a3.chunk.css.map":{"status":"NEW","action":"CREATE"},"/myprojectecca-bundle/static/js/2.8838dde2.chunk.js":{"status":"NEW","action":"CREATE"},"/myprojectecca-bundle/static":{"status":"NEW","action":"CREATE"},"/myprojectecca-bundle/static/js/main.38ccc2a9.chunk.js":{"status":"NEW","action":"CREATE"},"/myprojectecca-bundle/static/css/main.552b72a3.chunk.css":{"status":"NEW","action":"CREATE"},"/myprojectecca-bundle/static/js/2.8838dde2.chunk.js.map":{"status":"NEW","action":"CREATE"},"/myprojectecca-bundle/static/js/2.bfcc9292.chunk.js.map":{"status":"NEW","action":"CREATE"},"/myprojectecca-bundle/static/js/main.f7283893.chunk.js":{"status":"NEW","action":"CREATE"}},"plugins":{"saberc-myprojectecca":{"status":"NEW","action":"CREATE"}},"categories":{},"groups":{},"labels":{},"languages":{},"version":"latest"}',
+  customInstallation: false,
+};
+

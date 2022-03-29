@@ -16,6 +16,7 @@ const TEST_STATE = {
 
 jest.mock('state/groups/selectors', () => ({
   getGroupsList: jest.fn(),
+  getGroupsMap: jest.fn(),
 }));
 
 jest.mock('state/users/selectors', () => ({
@@ -24,6 +25,10 @@ jest.mock('state/users/selectors', () => ({
 
 jest.mock('state/user-preferences/selectors', () => ({
   getUserPreferences: jest.fn().mockReturnValue({}),
+}));
+
+jest.mock('state/permissions/selectors', () => ({
+  getMyGroupPermissions: jest.fn(() => ([{ group: 'free', permissions: [] }])),
 }));
 
 getGroupsList.mockReturnValue([GROUP]);

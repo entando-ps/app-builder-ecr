@@ -9,6 +9,8 @@ import {
   fetchComponentUsage,
   fetchECRComponentDetail,
   setInstallUninstallProgress,
+  setSelectedComponentInstallVersion,
+  setInstallHasConflictingVersion,
 } from 'state/component-repository/components/actions';
 import {
   getECRComponentLastInstallStatus,
@@ -16,9 +18,12 @@ import {
   getECRComponentUninstallStatus,
   getComponentUsageList,
   getInstallUninstallProgress,
+  getECRComponentInstallationVersion,
+  getECRComponentInstallationHasConflictingVersion,
 } from 'state/component-repository/components/selectors';
 import { getLoading } from 'state/loading/selectors';
 import { setVisibleModal } from 'state/modal/actions';
+import { simulateMouseClick } from 'ui/app-tour/AppTour';
 
 export const mapStateToProps = (state, props) => ({
   lastInstallStatus: getECRComponentLastInstallStatus(state, props),
@@ -27,20 +32,27 @@ export const mapStateToProps = (state, props) => ({
   installUninstallLoading: !!getLoading(state)[`deComponentInstallUninstall-${props.component.code}`],
   componentUsageList: getComponentUsageList(state),
   progress: getInstallUninstallProgress(state),
+  selectedVersion: getECRComponentInstallationVersion(state) || '',
+  isConflictVersion: getECRComponentInstallationHasConflictingVersion(state),
 });
 
 export const mapDispatchToProps = (dispatch) => {
   const pollStepFunction = progress => dispatch(setInstallUninstallProgress(progress));
 
   return ({
-    onInstall: (component, version) => {
-      dispatch(installECRComponent(component, version, pollStepFunction));
-    },
+    onInstall: (component, version) =>
+      dispatch(installECRComponent(component, version, pollStepFunction)),
     onClickInstallDropdown: (componentCode) => {
       dispatch(fetchECRComponentDetail(componentCode));
     },
     onUninstall: (componentCode) => {
       dispatch(setVisibleModal(''));
+      setTimeout(() => {
+        const element = document.querySelector(`#component-modal-id-${componentCode}`);
+        if (element) {
+          simulateMouseClick(element);
+        }
+      }, 500);
       return dispatch(uninstallECRComponent(componentCode, pollStepFunction));
     },
     onClickUninstall: (componentCode) => {
@@ -51,6 +63,8 @@ export const mapDispatchToProps = (dispatch) => {
       componentCode => dispatch(pollECRComponentInstallStatus(componentCode, pollStepFunction)),
     recheckUninstallStatus:
       componentCode => dispatch(pollECRComponentUninstallStatus(componentCode, pollStepFunction)),
+    setSelectedVersion: version => dispatch(setSelectedComponentInstallVersion(version)),
+    setIsConflictVersion: hasConflict => dispatch(setInstallHasConflictingVersion(hasConflict)),
   });
 };
 

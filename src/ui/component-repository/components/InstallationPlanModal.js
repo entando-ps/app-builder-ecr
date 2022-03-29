@@ -4,11 +4,12 @@ import { FormattedMessage } from 'react-intl';
 import GenericModalContainer from 'ui/common/modal/GenericModalContainer';
 import { Button, Modal, ButtonGroup } from 'patternfly-react';
 
-import { getInstallPlan, getComponent, getComponentVersion } from 'state/component-repository/components/selectors';
+import { getInstallPlan, getComponent, getComponentVersion, isReadOnly } from 'state/component-repository/components/selectors';
 import { updateAllInstallPlan, installECRComponent, setInstallUninstallProgress } from 'state/component-repository/components/actions';
 import { setVisibleModal } from 'state/modal/actions';
 
 import InstallationPlanTable from 'ui/component-repository/components/InstallationPlanTable';
+import { simulateMouseClick } from 'ui/app-tour/AppTour';
 
 export const MODAL_ID = 'InstallationPlanModal';
 const IGNORED_KEYS = ['version', 'conflictStrategy', 'hasConflicts'];
@@ -19,19 +20,21 @@ const normalizeList = installPlan =>
     .reduce((acc, category) => ([
       ...acc,
       ...Object.keys(installPlan[category])
-        .map(component =>
-          ({
+        .map(component => (
+          {
             category,
             component,
             status: installPlan[category][component].status,
             action: installPlan[category][component].action,
-          })),
+          }
+        )),
     ]), []);
 
 const InstallationPlanModal = () => {
   const installPlan = useSelector(getInstallPlan);
   const selectedComponent = useSelector(getComponent);
   const version = useSelector(getComponentVersion);
+  const readOnly = useSelector(isReadOnly);
   const dispatch = useDispatch();
   const [filterType, setFilterType] = useState('all');
   const [requiredList, setRequiredList] = useState([]);
@@ -52,6 +55,12 @@ const InstallationPlanModal = () => {
         installPlan,
       ));
       dispatch(setVisibleModal(''));
+      setTimeout(() => {
+        const element = document.querySelector(`#component-modal-id-${selectedComponent.code}`);
+        if (element) {
+          simulateMouseClick(element);
+        }
+      }, 500);
     }
   };
 
@@ -66,7 +75,13 @@ const InstallationPlanModal = () => {
   );
 
   return (
-    <GenericModalContainer modalId={MODAL_ID} buttons={buttons} modalTitle={modalTitle} modalClassName="InstallationPlanModal">
+    <GenericModalContainer
+      modalId={MODAL_ID}
+      buttons={!readOnly ? buttons : []}
+      modalTitle={modalTitle}
+      modalClassName="InstallationPlanModal"
+      {...(readOnly && { closeLabel: 'app.ok' })}
+    >
       <h2 className="InstallationPlanModal__title">{selectedComponent.title}</h2>
       <div>
         <div className="InstallationPlanModal__filters-wrapper">
@@ -88,27 +103,33 @@ const InstallationPlanModal = () => {
               </Button>
             </ButtonGroup>
           </div>
-          <div>
-            <ul className="InstallationPlanModal__bulk-actions">
-              <li>{filteredList.length} <FormattedMessage id="componentRepository.categories.component" /></li>
-              <li>
-                <Button
-                  onClick={() => { dispatch(updateAllInstallPlan('OVERRIDE')); }}
-                >
-                  <FormattedMessage id="componentRepository.updateAll" />
-                </Button>
-              </li>
-              <li>
-                <Button
-                  onClick={() => { dispatch(updateAllInstallPlan('SKIP')); }}
-                >
-                  <FormattedMessage id="componentRepository.skipAll" />
-                </Button>
-              </li>
-            </ul>
-          </div>
+          {!readOnly &&
+            <div>
+              <ul className="InstallationPlanModal__bulk-actions">
+                <li>{filteredList.length} <FormattedMessage id="componentRepository.categories.component" /></li>
+                <li>
+                  <Button
+                    onClick={() => { dispatch(updateAllInstallPlan('OVERRIDE')); }}
+                  >
+                    <FormattedMessage id="componentRepository.updateAll" />
+                  </Button>
+                </li>
+                <li>
+                  <Button
+                    onClick={() => { dispatch(updateAllInstallPlan('SKIP')); }}
+                  >
+                    <FormattedMessage id="componentRepository.skipAll" />
+                  </Button>
+                </li>
+              </ul>
+            </div>
+          }
         </div>
-        <InstallationPlanTable tableRows={filteredList} requiredList={requiredList} />
+        <InstallationPlanTable
+          tableRows={filteredList}
+          requiredList={requiredList}
+          readOnly={readOnly}
+        />
       </div>
     </GenericModalContainer>
   );

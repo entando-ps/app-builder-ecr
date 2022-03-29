@@ -6,6 +6,7 @@ import {
   SET_PAGE_LOADING,
   SET_PAGE_LOADED,
   SET_PAGE_PARENT,
+  SET_VIEWPAGES,
   MOVE_PAGE,
   SET_FREE_PAGES,
   SET_SELECTED_PAGE,
@@ -16,6 +17,7 @@ import {
   CLEAR_TREE,
   BATCH_TOGGLE_EXPANDED,
   COLLAPSE_ALL,
+  SET_DASHBOARD_PAGES,
 } from 'state/pages/types';
 
 // creates a map from an array
@@ -212,6 +214,18 @@ const statusMap = (state = {}, action = {}) => {
   }
 };
 
+const viewPages = (state = [], { type, payload } = {}) => {
+  switch (type) {
+    case SET_VIEWPAGES:
+      return payload;
+    case CLEAR_TREE: {
+      return [];
+    }
+    default:
+      return state;
+  }
+};
+
 const freePages = (state = [], action = {}) => {
   switch (action.type) {
     case SET_FREE_PAGES: {
@@ -263,12 +277,22 @@ export const search = (state = [], action = {}) => {
   }
 };
 
+export const dashboard = (state = [], action = {}) => {
+  switch (action.type) {
+    case SET_DASHBOARD_PAGES:
+      return action.payload.pages;
+    default: return state;
+  }
+};
+
 export default combineReducers({
   map: reducer,
   childrenMap,
   titlesMap,
   statusMap,
+  viewPages,
   freePages,
   selected,
   search,
+  dashboard,
 });
